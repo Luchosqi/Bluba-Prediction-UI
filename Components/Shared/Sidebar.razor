@@ -1,0 +1,42 @@
+<aside class="sidebar">
+    <div class="sidebar__brand"><span>Bluba</span></div>
+
+    <nav class="sidebar__nav">
+        @foreach (var (label, selected) in Menu)
+        {
+            <button type="button" class="sidebar__item @(selected ? "sidebar__item--selected" : null)">
+                <span>@label</span>
+            </button>
+        }
+    </nav>
+
+    @foreach (var (title, items) in Groups)
+    {
+        <section class="sidebar__group">
+            <p class="sidebar__group-title">@title</p>
+            @foreach (var label in items)
+            {
+                <button type="button" class="sidebar__item"><span>@label</span></button>
+            }
+        </section>
+    }
+</aside>
+
+@code {
+    private static readonly (string Label, bool Selected)[] Menu =
+    [
+        ("Inicio", false),
+        ("Agenda", false),
+        ("Mis Consultantes", true),
+        ("Mi Equipo", false),
+        ("Disponibilidad", false),
+        ("Configuración de Horarios", false),
+    ];
+
+    private static readonly (string Title, string[] Items)[] Groups =
+    [
+        ("ANÁLISIS", ["Reportes"]),
+        ("SOPORTE", ["Mis Tickets"]),
+        ("COMUNICACIÓN", ["Comunicaciones"]),
+    ];
+}

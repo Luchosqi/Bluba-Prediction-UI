@@ -1,0 +1,182 @@
+@* Encadena GET /adaptive-question + POST /adaptive-responses hasta que no falten datos. *@
+
+<div class="overlay overlay--center" role="dialog" aria-modal="true" aria-labelledby="adaptive-title">
+    <div class="dialog dialog--wide">
+        <div class="dialog__head">
+            <div>
+                <p class="wizard__eyebrow">Mejorar la estimación</p>
+                <h2 id="adaptive-title" class="dialog__title">Completar datos del día</h2>
+            </div>
+            <button type="button" class="dialog__close" @onclick="OnClose">Cerrar</button>
+        </div>
+
+        @if (current is { NeedsMoreInformation: true })
+        {
+            var catalog = AdaptiveCatalog.For(current.Feature);
+
+            <p class="adaptive__question">@current.Question</p>
+            @if (current.Reason is { Length: > 0 } reason)
+            {
+                <p class="adaptive__reason">@reason</p>
+            }
+
+            @if (catalog is { } entry)
+            {
+                <div class="adaptive__options">
+                    @foreach (var (code, label) in entry.Options)
+                    {
+                        <button type="button" class="opt-chip @(answer == code ? "is-selected" : null)"
+                                disabled="@saving" @onclick="() => answer = code">@label</button>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="state-note">
+                    La API pidió el dato «@current.Feature», que este formulario todavía no sabe responder.
+                </p>
+            }
+
+            @if (current.PredictionRange is { } range && range > 0)
+            {
+                <p class="adaptive__impact">
+                    Responder esto puede mover el riesgo estimado hasta @($"{range * 100:0.#}") puntos.
+                </p>
+            }
+        }
+        else if (answered == 0)
+        {
+            <p class="adaptive__question">No faltan datos por ahora.</p>
+            <p class="adaptive__reason">
+                La API no tiene preguntas pendientes para este consultante; la estimación ya usa
+                toda la información disponible.
+            </p>
+        }
+        else
+        {
+            <p class="adaptive__question">Listo, no quedan preguntas pendientes.</p>
+        }
+
+        @if (lastResult is { } result)
+        {
+            <div class="adaptive__result">
+                <p class="adaptive__result-title">
+                    Registrado: @result.Response.NormalizedValue
+                </p>
+                <div class="adaptive__deltas">
+                    <div>
+                        <span class="adaptive__delta-label">Confianza</span>
+                        <span class="adaptive__delta-value">
+                            @Pct(result.PredictionBefore.Confidence) → <b>@Pct(result.PredictionAfter.Confidence)</b>
+                            <em class="@DeltaClass(result.PredictionAfter.Confidence - result.PredictionBefore.Confidence)">
+                                @Delta(result.PredictionAfter.Confidence - result.PredictionBefore.Confidence)
+                            </em>
+                        </span>
+                    </div>
+                    <div>
+                        <span class="adaptive__delta-label">Riesgo</span>
+                        <span class="adaptive__delta-value">
+                            @Pct(result.PredictionBefore.RiskProbability) → <b>@Pct(result.PredictionAfter.RiskProbability)</b>
+                        </span>
+                    </div>
+                </div>
+                @if (answered == 1 && result.PredictionAfter.Confidence < result.PredictionBefore.Confidence)
+                {
+                    <p class="adaptive__hint">
+                        La primera respuesta abre el registro de hoy con un solo campo completo, así que
+                        la cobertura baja momentáneamente. Completa las preguntas restantes para superar
+                        el nivel de confianza inicial.
+                    </p>
+                }
+            </div>
+        }
+
+        @if (error is { Length: > 0 })
+        {
+            <div class="wizard__error">@error</div>
+        }
+
+        <div class="adaptive__foot">
+            <span class="adaptive__count">@answered @(answered == 1 ? "respuesta" : "respuestas") registradas</span>
+            @if (current is { NeedsMoreInformation: true } && AdaptiveCatalog.For(current.Feature) is not null)
+            {
+                <button type="button" class="btn-save" disabled="@(answer is null || saving)" @onclick="SubmitAsync">
+                    @(saving ? "Guardando…" : "Responder")
+                </button>
+            }
+            else
+            {
+                <button type="button" class="btn-next" @onclick="OnClose">Cerrar</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string CaseId { get; set; } = default!;
+    [Parameter, EditorRequired] public AdaptiveQuestion? Question { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Se dispara tras cada respuesta para que el tablero se refresque en vivo.</summary>
+    [Parameter] public EventCallback OnAnswered { get; set; }
+
+    [Inject] private BlubaApiClient Api { get; set; } = default!;
+
+    private AdaptiveQuestion? current;
+    private AdaptiveAnswerResult? lastResult;
+    private string? answer;
+    private string? error;
+    private bool saving;
+    private int answered;
+
+    protected override void OnInitialized() => current = Question;
+
+    private async Task SubmitAsync()
+    {
+        if (current?.QuestionId is not { } questionId || current.Feature is not { } feature || answer is null) return;
+
+        saving = true;
+        error = null;
+
+        var result = await Api.SubmitAdaptiveAnswerAsync(CaseId, new AdaptiveAnswerCreate(
+            QuestionId: questionId,
+            FeatureName: feature,
+            RawAnswer: answer,
+            // Sin conversión a UTC: la API usa la fecha tal cual para elegir el registro
+            // diario, así que debe ser la fecha local del día que se está describiendo.
+            ObservedAt: DateTime.Now,
+            ClientResponseId: Guid.NewGuid().ToString("n")));
+
+        if (result is null)
+        {
+            saving = false;
+            error = Api.LastError?.Contains("409") == true
+                ? "Ese dato ya estaba registrado hoy y la API no lo sobrescribe."
+                : $"No se pudo guardar la respuesta. {Api.LastError}";
+            return;
+        }
+
+        lastResult = result;
+        answered++;
+        answer = null;
+
+        // El tablero se actualiza en vivo con la predicción recalculada.
+        await OnAnswered.InvokeAsync();
+
+        // La API recalcula qué dato falta ahora, así que se encadena la siguiente pregunta.
+        current = await Api.GetAdaptiveQuestionAsync(CaseId);
+        saving = false;
+    }
+
+    private static string Pct(double value) => $"{value * 100:0}%";
+
+    private static string Delta(double value) =>
+        Math.Abs(value * 100) < 0.5 ? "sin cambio" : $"{(value > 0 ? "+" : "−")}{Math.Abs(value * 100):0} pts";
+
+    private static string DeltaClass(double value) => value switch
+    {
+        > 0.005 => "is-up",
+        < -0.005 => "is-down",
+        _ => "is-flat",
+    };
+}

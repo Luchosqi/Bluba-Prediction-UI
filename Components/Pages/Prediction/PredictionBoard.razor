@@ -1,0 +1,436 @@
+@implements IDisposable
+
+<section class="board">
+    @if (!apiOnline)
+    {
+        <div class="demo-banner">
+            <span aria-hidden="true">⚠️</span>
+            <span>
+                <strong>Modo demostración.</strong>
+                No se pudo contactar la API en <code>@ApiBaseAddress</code>, así que se muestran datos de
+                ejemplo. Detalle: @offlineDetail
+            </span>
+        </div>
+    }
+
+    <div class="board__row board__row--3-5">
+        <SensoryWalletCard Gauge="gauge" Question="adaptiveQuestion"
+                           OnAnswerRequested="() => showAdaptiveDialog = true" />
+
+        <article class="card">
+            <div class="card__head">
+                <div>
+                    <h3 class="card__title">Cuidado sugerido</h3>
+                    <p class="card__subtitle">
+                        Recomendaciones preventivas basadas en el estado del niño y eventos de las últimas 24 horas.
+                    </p>
+                </div>
+                <button type="button" class="btn-pill" disabled="@(suggestions.Count == 0)"
+                        @onclick="OpenInterventionWizard">Registrar evento +</button>
+            </div>
+
+            <div class="stack">
+                @foreach (var suggestion in suggestions)
+                {
+                    <div class="row-card">
+                        <span class="row-card__icon"><Icon Name="@suggestion.Icon" /></span>
+                        <div class="row-card__body">
+                            <p class="row-card__title">@suggestion.Title</p>
+                            <p class="row-card__detail">@suggestion.Detail</p>
+                        </div>
+                        <button type="button" class="row-card__action" title="Buscar otra estrategia"
+                                aria-label="Buscar otra estrategia" @onclick="ReloadSuggestionsAsync">
+                            <Icon Name="rotate-ccw" Size="16" StrokeWidth="2" />
+                        </button>
+                    </div>
+                }
+                @for (var i = suggestions.Count; i < 3; i++)
+                {
+                    <div class="slot-empty">Espacio disponible para nueva recomendación</div>
+                }
+            </div>
+        </article>
+    </div>
+
+    <div class="board__row board__row--halves">
+        @* ---- Historial de desregulaciones ---- *@
+        <article class="card">
+            <div class="card__head">
+                <div>
+                    <h3 class="card__title">Historial de desregulaciones</h3>
+                    <p class="card__subtitle">
+                        Registro de episodios informados y del contexto observado por la familia.
+                    </p>
+                </div>
+                <button type="button" class="btn-pill" @onclick="() => showDysregulationWizard = true">
+                    Ingresar desregulación +
+                </button>
+            </div>
+
+            <div class="list-filters">
+                <span class="list-filters__label">Filtrar:</span>
+                <label>
+                    <select aria-label="Filtrar por período" value="@episodePeriod"
+                            @onchange="OnEpisodePeriodChangedAsync">
+                        @foreach (var option in Periods)
+                        {
+                            <option value="@option">@option.Label()</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    <span>Tipo</span>
+                    <select aria-label="Filtrar por tipo" value="@episodeIntensity"
+                            @onchange="OnEpisodeIntensityChangedAsync">
+                        <option value="">Todos</option>
+                        <option value="Leve (1-3)">Leve</option>
+                        <option value="Moderada (4-7)">Moderada</option>
+                        <option value="Severa (8-10)">Alta</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="stack stack--tight">
+                @foreach (var episode in episodes)
+                {
+                    <div class="row-card row-card--top">
+                        <div class="row-card__body">
+                            <p class="row-card__title">@episode.Context</p>
+                            <div class="row-card__meta">
+                                <span class="row-card__when">@episode.When</span>
+                                <span class="chip">
+                                    <i class="@DotClass(episode.Severity)"></i>Intensidad: @episode.Intensity
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
+                @if (episodes.Count == 0)
+                {
+                    <p class="state-note">No hay episodios registrados para este filtro.</p>
+                }
+            </div>
+
+            <nav class="pager" aria-label="Paginación del historial de desregulaciones">
+                <button type="button" class="pager__arrow" disabled="@(episodePage == 1)"
+                        @onclick="() => GoToEpisodePageAsync(episodePage - 1)">‹</button>
+                @for (var page = 1; page <= EpisodePageCount; page++)
+                {
+                    var target = page;
+                    <button type="button" class="@(target == episodePage ? "pager__page--current" : null)"
+                            aria-current="@(target == episodePage ? "page" : null)"
+                            @onclick="() => GoToEpisodePageAsync(target)">@target</button>
+                }
+                <button type="button" class="pager__arrow" disabled="@(episodePage >= EpisodePageCount)"
+                        @onclick="() => GoToEpisodePageAsync(episodePage + 1)">›</button>
+            </nav>
+        </article>
+
+        @* ---- Historial de cuidados aplicados ---- *@
+        <article class="card">
+            <div class="card__head">
+                <div>
+                    <h3 class="card__title">Historial de Cuidados Aplicados</h3>
+                    <p class="card__subtitle">
+                        Registro de intervenciones preventivas realizadas y la evaluación de su impacto en el niño.
+                    </p>
+                </div>
+            </div>
+
+            <div class="list-filters">
+                <span class="list-filters__label">Filtrar:</span>
+                <label>
+                    <select aria-label="Filtrar por período" value="@carePeriod"
+                            @onchange="OnCarePeriodChangedAsync">
+                        @foreach (var option in Periods)
+                        {
+                            <option value="@option">@option.Label()</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    <span>Tipo</span>
+                    <select aria-label="Filtrar por tipo" value="@careOutcome" @onchange="OnCareOutcomeChanged">
+                        <option value="">Todos</option>
+                        <option value="REGULATED">Efectiva</option>
+                        <option value="PARTIAL">Neutra</option>
+                        <option value="WORSENED">Desfavorable</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="stack stack--tight">
+                @foreach (var item in CarePage)
+                {
+                    <div class="row-card row-card--top">
+                        <div class="row-card__body">
+                            <p class="row-card__title">@item.Title</p>
+                            <div class="row-card__meta">
+                                <span class="row-card__when">@item.When</span>
+                                <span class="chip"><i class="@DotClass(item.Severity)"></i>@item.Result</span>
+                            </div>
+                            <p class="row-card__detail">@item.Detail</p>
+                        </div>
+                    </div>
+                }
+                @if (CarePage.Count == 0)
+                {
+                    <p class="state-note">No hay cuidados aplicados para este filtro.</p>
+                }
+            </div>
+
+            <nav class="pager" aria-label="Paginación del historial de cuidados">
+                <button type="button" class="pager__arrow" disabled="@(carePage == 1)"
+                        @onclick="() => carePage--">‹</button>
+                @for (var page = 1; page <= CarePageCount; page++)
+                {
+                    var target = page;
+                    <button type="button" class="@(target == carePage ? "pager__page--current" : null)"
+                            aria-current="@(target == carePage ? "page" : null)"
+                            @onclick="() => carePage = target">@target</button>
+                }
+                <button type="button" class="pager__arrow" disabled="@(carePage >= CarePageCount)"
+                        @onclick="() => carePage++">›</button>
+            </nav>
+        </article>
+    </div>
+</section>
+
+@if (showAdaptiveDialog)
+{
+    <AdaptiveQuestionDialog CaseId="@CaseId" Question="adaptiveQuestion"
+                            OnClose="CloseAdaptiveDialogAsync"
+                            OnAnswered="OnAdaptiveAnsweredAsync" />
+}
+
+@if (showInterventionWizard)
+{
+    <InterventionWizard CaseId="@CaseId" Suggestions="suggestions"
+                        OnCancel="() => showInterventionWizard = false"
+                        OnSaved="OnInterventionSavedAsync" />
+}
+
+@if (showDysregulationWizard)
+{
+    <DysregulationWizard CaseId="@CaseId"
+                         OnCancel="() => showDysregulationWizard = false"
+                         OnSaved="OnDysregulationSavedAsync" />
+}
+
+@code {
+    [Parameter, EditorRequired] public string CaseId { get; set; } = default!;
+
+    [Inject] private BlubaApiClient Api { get; set; } = default!;
+    [Inject] private IConfiguration Configuration { get; set; } = default!;
+
+    private const int EpisodePageSize = 4;
+    private const int CarePageSize = 3;
+
+    private static readonly PeriodFilter[] Periods =
+        [PeriodFilter.Last7Days, PeriodFilter.Today, PeriodFilter.Yesterday, PeriodFilter.LastMonth, PeriodFilter.All];
+
+    private readonly CancellationTokenSource cts = new();
+
+    private RiskGauge gauge = DemoData.Gauge;
+    private List<SuggestionCard> suggestions = [.. DemoData.Suggestions()];
+    private List<EpisodeRow> episodes = [.. DemoData.Episodes()];
+    private List<CareRow> allCare = [.. DemoData.Care()];
+
+    private PeriodFilter episodePeriod = PeriodFilter.All;
+    private string episodeIntensity = string.Empty;
+    private int episodePage = 1;
+    private int episodeTotal;
+
+    private PeriodFilter carePeriod = PeriodFilter.All;
+    private string careOutcome = string.Empty;
+    private int carePage = 1;
+
+    private bool showInterventionWizard;
+    private bool showDysregulationWizard;
+    private bool showAdaptiveDialog;
+
+    private AdaptiveQuestion? adaptiveQuestion;
+
+    private bool apiOnline = true;
+    private string? offlineDetail;
+
+    private string ApiBaseAddress => Configuration["BlubaApi:BaseAddress"] ?? "(sin configurar)";
+
+    private int EpisodePageCount => Math.Max(1, (int)Math.Ceiling(episodeTotal / (double)EpisodePageSize));
+
+    private IReadOnlyList<CareRow> FilteredCare => careOutcome.Length == 0
+        ? allCare
+        : allCare.Where(item => item.Result == BoardMapper.OutcomeLabel(careOutcome)).ToList();
+
+    private int CarePageCount => Math.Max(1, (int)Math.Ceiling(FilteredCare.Count / (double)CarePageSize));
+
+    private IReadOnlyList<CareRow> CarePage =>
+        FilteredCare.Skip((Math.Min(carePage, CarePageCount) - 1) * CarePageSize).Take(CarePageSize).ToList();
+
+    private string? loadedCaseId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // El padre puede re-renderizar sin cambiar de caso; sólo recargamos cuando cambia.
+        if (loadedCaseId == CaseId) return;
+        loadedCaseId = CaseId;
+        episodePage = 1;
+        carePage = 1;
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        apiOnline = await Api.IsOnlineAsync(cts.Token);
+        offlineDetail = apiOnline ? null : Api.LastError;
+
+        await Task.WhenAll(
+            LoadGaugeAsync(),
+            LoadAdaptiveQuestionAsync(),
+            ReloadSuggestionsAsync(),
+            LoadEpisodesAsync(),
+            LoadCareAsync());
+    }
+
+    private async Task LoadAdaptiveQuestionAsync()
+    {
+        // Devuelve 503 mientras no exista el artefacto del modelo; ahí simplemente no se
+        // muestra el aviso, en vez de romper la tarjeta.
+        adaptiveQuestion = await Api.GetAdaptiveQuestionAsync(CaseId, cts.Token);
+    }
+
+    /// <summary>
+    /// Cada respuesta recalcula la predicción, así que el medidor y las sugerencias se
+    /// actualizan en vivo sin cerrar el diálogo.
+    /// </summary>
+    private async Task OnAdaptiveAnsweredAsync()
+    {
+        await Task.WhenAll(LoadGaugeAsync(), ReloadSuggestionsAsync());
+        StateHasChanged();
+    }
+
+    private async Task CloseAdaptiveDialogAsync()
+    {
+        showAdaptiveDialog = false;
+        await LoadAdaptiveQuestionAsync();
+    }
+
+    private async Task LoadGaugeAsync()
+    {
+        var prediction = await Api.GetLatestPredictionAsync(CaseId, cts.Token);
+        if (prediction is null)
+        {
+            gauge = DemoData.Gauge;
+            return;
+        }
+
+        var change = await Api.GetChangeExplanationAsync(CaseId, cts.Token);
+        gauge = BoardMapper.ToGauge(prediction, change);
+    }
+
+    private async Task ReloadSuggestionsAsync()
+    {
+        var cutoff = DateOnly.FromDateTime(DateTime.Today);
+        var strategies = await Api.GetStrategiesAsync(CaseId, cutoff, cts.Token);
+        suggestions = strategies is { Items.Count: > 0 }
+            ? [.. BoardMapper.ToSuggestions(strategies)]
+            : [.. DemoData.Suggestions()];
+    }
+
+    private async Task LoadEpisodesAsync()
+    {
+        var (from, to) = episodePeriod.Range(DateOnly.FromDateTime(DateTime.Today));
+        var history = await Api.GetDysregulationsAsync(
+            CaseId,
+            limit: EpisodePageSize,
+            offset: (episodePage - 1) * EpisodePageSize,
+            from: from,
+            to: to,
+            intensity: episodeIntensity.Length == 0 ? null : episodeIntensity,
+            ct: cts.Token);
+
+        if (history is null)
+        {
+            episodes = [.. DemoData.Episodes()];
+            episodeTotal = episodes.Count;
+            return;
+        }
+
+        episodes = [.. BoardMapper.ToEpisodes(history)];
+        episodeTotal = history.Total;
+    }
+
+    private async Task LoadCareAsync()
+    {
+        var (from, to) = carePeriod.Range(DateOnly.FromDateTime(DateTime.Today));
+        var interventions = await Api.GetInterventionsAsync(CaseId, from, to, cts.Token);
+        allCare = interventions is null ? [.. DemoData.Care()] : [.. BoardMapper.ToCare(interventions)];
+        carePage = 1;
+    }
+
+    private async Task OnEpisodePeriodChangedAsync(ChangeEventArgs e)
+    {
+        episodePeriod = Enum.Parse<PeriodFilter>(e.Value?.ToString() ?? nameof(PeriodFilter.All));
+        episodePage = 1;
+        await LoadEpisodesAsync();
+    }
+
+    private async Task OnEpisodeIntensityChangedAsync(ChangeEventArgs e)
+    {
+        episodeIntensity = e.Value?.ToString() ?? string.Empty;
+        episodePage = 1;
+        await LoadEpisodesAsync();
+    }
+
+    private async Task GoToEpisodePageAsync(int page)
+    {
+        episodePage = Math.Clamp(page, 1, EpisodePageCount);
+        await LoadEpisodesAsync();
+    }
+
+    private async Task OnCarePeriodChangedAsync(ChangeEventArgs e)
+    {
+        carePeriod = Enum.Parse<PeriodFilter>(e.Value?.ToString() ?? nameof(PeriodFilter.All));
+        await LoadCareAsync();
+    }
+
+    private void OnCareOutcomeChanged(ChangeEventArgs e)
+    {
+        careOutcome = e.Value?.ToString() ?? string.Empty;
+        carePage = 1;
+    }
+
+    private void OpenInterventionWizard()
+    {
+        showInterventionWizard = true;
+    }
+
+    private async Task OnInterventionSavedAsync(string suggestionId)
+    {
+        showInterventionWizard = false;
+        // La sugerencia consumida desaparece del panel, igual que en la maqueta.
+        suggestions.RemoveAll(item => item.Id == suggestionId);
+        await LoadCareAsync();
+    }
+
+    private async Task OnDysregulationSavedAsync()
+    {
+        showDysregulationWizard = false;
+        episodePage = 1;
+        await Task.WhenAll(
+            LoadEpisodesAsync(), LoadGaugeAsync(), ReloadSuggestionsAsync(), LoadAdaptiveQuestionAsync());
+    }
+
+    private static string DotClass(Severity severity) => severity switch
+    {
+        Severity.Low => "dot-low",
+        Severity.Medium => "dot-medium",
+        _ => "dot-high",
+    };
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

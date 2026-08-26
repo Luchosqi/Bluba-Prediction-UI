@@ -1,0 +1,231 @@
+@* Asistente de 5 pasos que arma un POST /cases/{id}/dysregulations. *@
+
+<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="dysregulation-dialog-title">
+    <div class="wizard">
+        <div class="wizard__head">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <p class="wizard__eyebrow">Nuevo registro</p>
+                    <h2 id="dysregulation-dialog-title" class="wizard__title">Registrar desregulación</h2>
+                </div>
+                <button type="button" class="wizard__close" @onclick="OnCancel">Cerrar</button>
+            </div>
+
+            <div class="wizard__steps">
+                <p>Paso @step de 5</p>
+                <p>Registro breve y guiado</p>
+            </div>
+            <div class="wizard__progress" aria-label="Progreso: paso @step de 5">
+                @for (var i = 1; i <= 5; i++)
+                {
+                    <span class="@(i <= step ? "is-done" : null)"></span>
+                }
+            </div>
+        </div>
+
+        <div class="wizard__body wizard__body--tall">
+            @switch (step)
+            {
+                case 1:
+                    <h3 class="wizard__question">¿Qué tan intensa fue la desregulación?</h3>
+                    <p class="wizard__hint">Elige la opción que mejor represente el momento más intenso del episodio.</p>
+                    <div class="opt-grid-3">
+                        @foreach (var option in Intensities)
+                        {
+                            <button type="button" class="opt-intensity @(intensity == option.ApiValue ? "is-selected" : null)"
+                                    @onclick="() => intensity = option.ApiValue">
+                                <div class="opt-intensity__head">
+                                    <span class="opt-intensity__dot" style="background:@option.Color"></span>
+                                    <span class="opt-intensity__range">@option.Range</span>
+                                </div>
+                                <p class="opt-intensity__name">@option.Name</p>
+                                <p class="opt-intensity__desc">@option.Description</p>
+                            </button>
+                        }
+                    </div>
+                    break;
+
+                case 2:
+                    <h3 class="wizard__question">¿Dónde y en qué momento ocurrió?</h3>
+                    <p class="wizard__hint">Selecciona el lugar y la transición que ocurrió justo antes.</p>
+                    <p class="wizard__group-label">Lugar</p>
+                    <div class="opt-chips">
+                        @foreach (var option in Locations)
+                        {
+                            <button type="button" class="opt-chip @(location == option ? "is-selected" : null)"
+                                    @onclick="() => location = option">@option</button>
+                        }
+                    </div>
+                    <p class="wizard__group-label">Transición previa</p>
+                    <div class="opt-chips">
+                        @foreach (var option in Transitions)
+                        {
+                            <button type="button" class="opt-chip @(transition == option ? "is-selected" : null)"
+                                    @onclick="() => transition = option">@option</button>
+                        }
+                    </div>
+                    break;
+
+                case 3:
+                    <h3 class="wizard__question">¿Cuál fue el desencadenante primario?</h3>
+                    <p class="wizard__hint">Escoge la causa más relevante según lo que observaste.</p>
+                    <div class="opt-list">
+                        @foreach (var option in Triggers)
+                        {
+                            <button type="button" class="opt-row @(trigger == option.Label ? "is-selected" : null)"
+                                    @onclick="() => trigger = option.Label">
+                                <span>@option.Label</span>
+                                <span class="opt-radio"></span>
+                            </button>
+                        }
+                    </div>
+                    break;
+
+                case 4:
+                    <h3 class="wizard__question">¿Qué apoyo aplicaste y cómo funcionó?</h3>
+                    <p class="wizard__hint">Registra el apoyo principal y una apreciación rápida de su efecto.</p>
+                    <p class="wizard__group-label">Apoyo usado</p>
+                    <div class="opt-chips">
+                        @foreach (var option in Supports)
+                        {
+                            <button type="button" class="opt-chip @(support == option ? "is-selected" : null)"
+                                    @onclick="() => support = option">@option</button>
+                        }
+                    </div>
+                    <p class="wizard__group-label">Efectividad</p>
+                    <div class="opt-grid-3">
+                        @foreach (var option in Effects)
+                        {
+                            <button type="button" class="opt-face opt-face--compact @(effect == option.ApiValue ? "is-selected" : null)"
+                                    @onclick="() => effect = option.ApiValue">
+                                <span class="opt-face__emoji" aria-hidden="true">@option.Emoji</span>
+                                <span class="opt-face__label">@option.Label</span>
+                            </button>
+                        }
+                    </div>
+                    break;
+
+                default:
+                    <h3 class="wizard__question">¿Algo más que debamos saber?</h3>
+                    <p class="wizard__hint">Este comentario es opcional y ayuda a detectar patrones con mayor precisión.</p>
+                    <label class="wizard__group-label" for="dysregulation-note">
+                        Comentarios generales <span class="is-optional">(opcional)</span>
+                    </label>
+                    <textarea id="dysregulation-note" class="wizard__textarea" @bind="note" @bind:event="oninput"
+                              placeholder="Detalles adicionales sobre observaciones o pródromos previos..."></textarea>
+                    <div class="wizard__notice">
+                        El registro se incorporará al historial del consultante y ayudará a mejorar futuras recomendaciones.
+                    </div>
+                    break;
+            }
+
+            @if (error is not null)
+            {
+                <div class="wizard__error">@error</div>
+            }
+        </div>
+
+        <div class="wizard__foot">
+            <button type="button" class="btn-back" disabled="@saving"
+                    @onclick="@(() => { if (step == 1) OnCancel.InvokeAsync(); else step--; })">
+                @(step == 1 ? "Cancelar" : "Atrás")
+            </button>
+
+            @if (step < 5)
+            {
+                <button type="button" class="btn-next" @onclick="() => step++">Siguiente</button>
+            }
+            else
+            {
+                <button type="button" class="btn-save" disabled="@saving" @onclick="SaveAsync">
+                    @(saving ? "Guardando…" : "Guardar registro y alimentar modelo")
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string CaseId { get; set; } = default!;
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    [Inject] private BlubaApiClient Api { get; set; } = default!;
+
+    private int step = 1;
+    private string intensity = "Moderada (4-7)";
+    private string? location;
+    private string? transition;
+    private string? trigger;
+    private string? support;
+    private string effect = "Regulación Parcial";
+    private string note = string.Empty;
+    private string? error;
+    private bool saving;
+
+    // Los valores ApiValue coinciden con el vocabulario que ya usa el dataset de la API.
+    private static readonly (string ApiValue, string Name, string Range, string Color, string Description)[] Intensities =
+    [
+        ("Leve (1-3)", "Leve", "1–3", "#38a477", "Respuesta breve, fácil de acompañar"),
+        ("Moderada (4-7)", "Moderada", "4–7", "#dca82e", "Requirió apoyo y tiempo"),
+        ("Severa (8-10)", "Severa", "8–10", "#d85d5d", "Afectó significativamente la rutina"),
+    ];
+
+    private static readonly string[] Locations =
+        ["Escuela / Aula", "Recreo", "Furgón / Trayecto", "Casa / Entrada", "Terapia"];
+
+    private static readonly string[] Transitions =
+        ["Salida del colegio", "Cambio de actividad", "Llegada a casa", "Sin cambio evidente"];
+
+    /// <summary>Cada desencadenante define también el tipo_evento que espera la API.</summary>
+    private static readonly (string Label, string EventType)[] Triggers =
+    [
+        ("Ruido / Sobrecarga auditiva", "Sobrecarga Sensorial"),
+        ("Cambio de rutina no anticipado", "Transición de Actividad"),
+        ("Frustración / Exigencia cognitiva", "Desregulación Emocional"),
+        ("Sobrecarga táctil / sensorial", "Sobrecarga Sensorial"),
+        ("Malestar físico / Digestivo", "Alimentación"),
+    ];
+
+    private static readonly string[] Supports =
+        ["Audífonos", "Espacio seguro / Calma", "Presión profunda / Chaleco", "Apoyo visual / Pictogramas"];
+
+    private static readonly (string ApiValue, string Emoji, string Label)[] Effects =
+    [
+        ("Regulación Exitosa", "😊", "Logró regularse"),
+        ("Regulación Parcial", "😐", "Parcial / requirió tiempo"),
+        ("Sin Regulación", "🙁", "No funcionó"),
+    ];
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        error = null;
+
+        var eventType = Triggers.FirstOrDefault(item => item.Label == trigger).EventType ?? "Desregulación Emocional";
+
+        var context = new[] { location, transition, trigger, string.IsNullOrWhiteSpace(note) ? null : note.Trim() }
+            .Where(part => !string.IsNullOrWhiteSpace(part));
+        var triggerText = string.Join(". ", context);
+
+        var created = await Api.CreateDysregulationAsync(CaseId, new DysregulationCreate(
+            OccurredAt: DateTime.UtcNow,
+            Type: eventType,
+            Intensity: intensity,
+            StrategyApplied: support ?? "Acompañamiento sin apoyo específico",
+            StrategyResult: effect,
+            ReportedByType: "FAMILY",
+            ClientEventId: Guid.NewGuid().ToString("n"),
+            SuspectedTriggerText: string.IsNullOrWhiteSpace(triggerText) ? null : triggerText));
+
+        saving = false;
+
+        if (created is null)
+        {
+            error = $"No se pudo guardar el episodio. {Api.LastError}";
+            return;
+        }
+
+        await OnSaved.InvokeAsync();
+    }
+}

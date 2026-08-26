@@ -1,0 +1,181 @@
+@page "/"
+@page "/caso/{CaseId}"
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Ficha del Consultante · Bluba</PageTitle>
+
+<div class="shell">
+    <Sidebar />
+
+    <div class="main">
+        <header class="topbar">
+            <h1>Ficha del Consultante</h1>
+
+            @if (cases.Count > 0)
+            {
+                <div class="case-picker">
+                    <label for="case-select">Consultante</label>
+                    <select id="case-select" value="@currentCaseId" @onchange="OnCaseChanged">
+                        @foreach (var item in cases)
+                        {
+                            <option value="@item.IdCaso">@item.IdCaso — @item.DiagnosticoPrincipal</option>
+                        }
+                    </select>
+                </div>
+            }
+        </header>
+
+        <main>
+            <section class="patient">
+                <img class="patient__avatar"
+                     src="https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=160&h=160&fit=crop&crop=face"
+                     alt="@DisplayName" />
+                <div style="min-width:0">
+                    <h2 class="patient__name">@DisplayName</h2>
+                    <div class="patient__tags">
+                        <span class="tag">@AgeLabel</span>
+                        <span class="tag">RUN 54.373.718-6</span>
+                        <span class="tag">@ProfileLabel</span>
+                        <span class="tag tag--active">Activo</span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="tabs">
+                @foreach (var tab in Tabs)
+                {
+                    <button type="button" class="tab @(activeTab == tab ? "tab--active" : null)"
+                            @onclick="() => activeTab = tab">@tab</button>
+                }
+            </div>
+
+            @if (activeTab == PredictionTab)
+            {
+                <PredictionBoard CaseId="@currentCaseId" />
+            }
+            else
+            {
+                <section class="logbook">
+                    <div class="logbook__head">
+                        <h3 class="logbook__title">Seguimiento Diario Familiar (Bitácora)</h3>
+                        <div class="logbook__actions">
+                            <button type="button" class="btn-outline">Exportar / Imprimir</button>
+                            <span class="logbook__note">Datos reportados por la familia</span>
+                        </div>
+                    </div>
+
+                    <div class="filters">
+                        <div class="filters__head">Filtros de Búsqueda</div>
+                        <div class="filters__body">
+                            <label class="field">
+                                <span class="field__label">Fecha Desde</span>
+                                <input class="field__input" @bind="from" @bind:event="oninput" />
+                            </label>
+                            <label class="field">
+                                <span class="field__label">Fecha Hasta</span>
+                                <input class="field__input" @bind="to" @bind:event="oninput" />
+                            </label>
+                            <button type="button" class="btn-primary-sq">Filtrar</button>
+                            <button type="button" class="btn-ghost-sq" @onclick="ResetDates">Restablecer</button>
+                        </div>
+                    </div>
+
+                    <div class="kpis">
+                        <article class="kpi">
+                            <p class="kpi__label">DÍAS REGISTRADOS</p>
+                            <p class="kpi__value">1</p>
+                        </article>
+                        <article class="kpi">
+                            <p class="kpi__label">TOTAL EVENTOS</p>
+                            <p class="kpi__value">2</p>
+                        </article>
+                        <article class="kpi">
+                            <p class="kpi__label">DESREGULACIONES (CRISIS)</p>
+                            <p class="kpi__value">2</p>
+                        </article>
+                        <article class="kpi">
+                            <p class="kpi__label">DESCANSO PROMEDIO</p>
+                            <p class="kpi__value">Reparador</p>
+                        </article>
+                    </div>
+                </section>
+            }
+        </main>
+    </div>
+</div>
+
+<MamaBlubaHelper />
+
+@code {
+    [Parameter] public string? CaseId { get; set; }
+
+    [Inject] private BlubaApiClient Api { get; set; } = default!;
+
+    private const string PredictionTab = "Predicción (Nuevo)";
+    private const string DefaultCaseId = "PAC-001";
+    private const string DefaultFrom = "18-06-2026";
+    private const string DefaultTo = "02-07-2026";
+
+    private static readonly string[] Tabs =
+    [
+        "Ficha Inicial",
+        "Planificación de Objetivos",
+        "Seguimiento",
+        "Sesiones",
+        "Informes/Doc",
+        "Compromisos",
+        "Bitácora Diaria",
+        "Mensajes",
+        PredictionTab,
+    ];
+
+    private readonly CancellationTokenSource cts = new();
+
+    private string activeTab = "Bitácora Diaria";
+    private string from = DefaultFrom;
+    private string to = DefaultTo;
+
+    private List<CaseSummary> cases = [];
+    private string currentCaseId = DefaultCaseId;
+
+    // La API entrega casos anonimizados, así que el nombre visible viene de la maqueta.
+    private string DisplayName => "Amelia Soto Neira";
+
+    private CaseSummary? CurrentCase => cases.FirstOrDefault(item => item.IdCaso == currentCaseId);
+
+    private string AgeLabel => CurrentCase is { } c
+        ? $"{c.RangoEdad} · {c.IdCaso}"
+        : "5 años, 8 meses y 22 días de edad";
+
+    private string ProfileLabel => CurrentCase?.PerfilSensorialPredominante ?? "Perfil sensorial no informado";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var loaded = await Api.GetCasesAsync(cts.Token);
+        if (loaded is { Count: > 0 }) cases = loaded;
+        currentCaseId = CaseId ?? cases.FirstOrDefault()?.IdCaso ?? DefaultCaseId;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (CaseId is not null) currentCaseId = CaseId;
+    }
+
+    private void OnCaseChanged(ChangeEventArgs e)
+    {
+        currentCaseId = e.Value?.ToString() ?? currentCaseId;
+    }
+
+    private void ResetDates()
+    {
+        from = DefaultFrom;
+        to = DefaultTo;
+    }
+
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+}

@@ -1,0 +1,154 @@
+@using System.Globalization
+
+<article class="card">
+    <div class="card__head">
+        <div>
+            <h3 class="card__title">Billetera Sensorial</h3>
+            <p class="card__subtitle">
+                Visualiza la sobrecarga sensorial acumulada y ayuda a anticipar momentos que puedan
+                requerir mayor apoyo.
+            </p>
+        </div>
+    </div>
+
+    <div class="gauge">
+        <svg viewBox="0 0 260 150" aria-label="Riesgo @Gauge.Level.ToLowerInvariant(): @Gauge.Score de 100">
+            @* Cuartiles del arco: 0-25 bajo, 25-50 moderado, 50-75 alto, 75-100 muy alto. *@
+            <path d="M 40 126 A 92 92 0 0 1 68 61" fill="none" stroke="#2fa778" stroke-width="22" />
+            <path d="M 68 61 A 92 92 0 0 1 131 34" fill="none" stroke="#f7e7b4" stroke-width="22" />
+            <path d="M 131 34 A 92 92 0 0 1 194 61" fill="none" stroke="#f4ddcb" stroke-width="22" />
+            <path d="M 194 61 A 92 92 0 0 1 222 126" fill="none" stroke="#f1d2d2" stroke-width="22" />
+
+            <text x="130" y="111" text-anchor="middle" fill="#2a5c91" font-size="49" font-weight="700">@Gauge.Score</text>
+
+            <path d="M @Fmt(NeedleX) @Fmt(NeedleY) L 131 125" stroke="#2a5c91" stroke-width="4" stroke-linecap="round" />
+            <circle cx="131" cy="125" r="7" fill="white" stroke="#2a5c91" stroke-width="4" />
+
+            <text x="31" y="144" fill="#8baaca" font-size="10">0</text>
+            <text x="39" y="58" fill="#8baaca" font-size="10">25</text>
+            <text x="126" y="20" fill="#8baaca" font-size="10">50</text>
+            <text x="216" y="58" fill="#8baaca" font-size="10">75</text>
+            <text x="215" y="144" fill="#8baaca" font-size="10">100</text>
+        </svg>
+
+        <div class="gauge__legend">
+            <span><i style="background:#2fa778"></i>Bajo</span>
+            <span><i style="background:#e3ad28"></i>Moderado</span>
+            <span><i style="background:#e68045"></i>Alto</span>
+            <span><i style="background:#ce5959"></i>Muy alto</span>
+        </div>
+    </div>
+
+    <div class="gauge__stats">
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;padding-right:12px">
+            <button type="button" class="gauge__stat" aria-expanded="@showConfidence"
+                    @onclick="() => showConfidence = !showConfidence">
+                Confianza <b>@Gauge.ConfidencePercent%</b>
+            </button>
+            @if (showConfidence)
+            {
+                <span class="tooltip">Precisión del algoritmo según la cantidad de datos ingresados hoy.</span>
+            }
+        </div>
+
+        <button type="button" class="gauge__stat gauge__stat--trend" style="padding-left:12px"
+                @onclick="() => showTrend = true">
+            <span>Vs. ayer</span>
+            <b>@DeltaText</b>
+            <span class="gauge__stat-arrow">@DeltaArrow</span>
+        </button>
+    </div>
+
+    @if (Question is { NeedsMoreInformation: true })
+    {
+        <button type="button" class="missing-data" @onclick="OnAnswerRequested">
+            <span class="missing-data__dot" aria-hidden="true"></span>
+            <span class="missing-data__text">
+                <b>Faltan datos</b>
+                <span>@(AdaptiveCatalog.For(Question.Feature)?.Title ?? Question.Feature)</span>
+            </span>
+            <span class="missing-data__cta">Responder →</span>
+        </button>
+    }
+    else if (Question is not null)
+    {
+        <p class="missing-data missing-data--ok">
+            <span class="missing-data__dot" aria-hidden="true"></span>
+            <span class="missing-data__text">Sin datos pendientes para hoy</span>
+        </p>
+    }
+</article>
+
+@if (showTrend)
+{
+    <div class="overlay overlay--center" role="dialog" aria-modal="true" aria-labelledby="trend-dialog-title">
+        <div class="dialog">
+            <div class="dialog__head">
+                <h2 id="trend-dialog-title" class="dialog__title">Comparativa diaria</h2>
+                <button type="button" class="dialog__close" aria-label="Cerrar"
+                        @onclick="() => showTrend = false">Cerrar</button>
+            </div>
+
+            <div class="trend">
+                @for (var i = 0; i < Gauge.Trend.Count; i++)
+                {
+                    var point = Gauge.Trend[i];
+                    var isNow = i == Gauge.Trend.Count - 1;
+                    <div class="trend__cell @(isNow ? "trend__cell--now" : null)">
+                        <p class="trend__label">@point.Label</p>
+                        <p class="trend__value">@point.Score</p>
+                        <p class="trend__note">@(isNow && Gauge.DeltaPoints is { } d && Math.Abs(d) >= 0.5
+                            ? $"{Math.Abs(Math.Round(d)):0} puntos {(d < 0 ? "menos" : "más")}"
+                            : point.Level)</p>
+                    </div>
+                }
+            </div>
+
+            @if (Gauge.ComparisonNote is { } note)
+            {
+                <p class="state-note">@note</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public RiskGauge Gauge { get; set; } = default!;
+
+    /// <summary>Resultado de GET /adaptive-question; null mientras no se haya podido consultar.</summary>
+    [Parameter] public AdaptiveQuestion? Question { get; set; }
+
+    [Parameter] public EventCallback OnAnswerRequested { get; set; }
+
+    private bool showConfidence;
+    private bool showTrend;
+
+    // El arco cubre 180°: valor 0 apunta a la izquierda, valor 100 a la derecha.
+    private const double CenterX = 131, CenterY = 125, NeedleLength = 62;
+
+    private double AngleRad => Math.PI * (1 - Math.Clamp(Gauge.Score, 0, 100) / 100d);
+    private double NeedleX => CenterX + NeedleLength * Math.Cos(AngleRad);
+    private double NeedleY => CenterY - NeedleLength * Math.Sin(AngleRad);
+
+    private string DeltaText
+    {
+        get
+        {
+            if (Gauge.DeltaPoints is not { } delta) return "—";
+            var rounded = Math.Abs(Math.Round(delta));
+            // Un cambio que redondea a cero se muestra sin signo, para no leerse como "−0".
+            var sign = rounded == 0 ? "" : delta > 0 ? "+" : "−";
+            return sign + rounded.ToString("0", CultureInfo.InvariantCulture);
+        }
+    }
+
+    private string DeltaArrow => Gauge.DeltaPoints switch
+    {
+        > 0.5 => "↑",
+        < -0.5 => "↓",
+        null => "",
+        _ => "→",
+    };
+
+    private static string Fmt(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+}

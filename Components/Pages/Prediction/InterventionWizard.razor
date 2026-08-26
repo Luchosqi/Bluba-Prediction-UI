@@ -1,0 +1,159 @@
+@* Asistente de 2 pasos: registra la intervención (POST) y su resultado (PATCH). *@
+
+<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="suggestion-log-title">
+    <div class="wizard">
+        <div class="wizard__head">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div>
+                    <p class="wizard__eyebrow">Nuevo registro</p>
+                    <h2 id="suggestion-log-title" class="wizard__title">Registrar evento</h2>
+                </div>
+                <button type="button" class="wizard__close" @onclick="OnCancel">Cerrar</button>
+            </div>
+
+            <div class="wizard__steps">
+                <p>Paso @step de 2</p>
+                <p>Registro breve y guiado</p>
+            </div>
+            <div class="wizard__progress" aria-label="Progreso: paso @step de 2">
+                @for (var i = 1; i <= 2; i++)
+                {
+                    <span class="@(i <= step ? "is-done" : null)"></span>
+                }
+            </div>
+        </div>
+
+        <div class="wizard__body">
+            @if (step == 1)
+            {
+                <h3 class="wizard__question">¿Qué sugerencia aplicaste?</h3>
+                <p class="wizard__hint">Selecciona el apoyo que se utilizó durante el evento.</p>
+                <div class="opt-list">
+                    @foreach (var suggestion in Suggestions)
+                    {
+                        var isSelected = selectedId == suggestion.Id;
+                        <button type="button" class="opt-row @(isSelected ? "is-selected" : null)"
+                                @onclick="() => selectedId = suggestion.Id">
+                            <span>@suggestion.Short</span>
+                            <span class="opt-radio"></span>
+                        </button>
+                    }
+                </div>
+                @if (Suggestions.Count == 0)
+                {
+                    <p class="state-note">No hay sugerencias activas para registrar.</p>
+                }
+            }
+            else
+            {
+                <h3 class="wizard__question">¿Cómo funcionó el apoyo?</h3>
+                <p class="wizard__hint">Una apreciación rápida ayudará a mejorar las futuras recomendaciones.</p>
+                <div class="opt-grid-3">
+                    @foreach (var (outcome, emoji, label) in Outcomes)
+                    {
+                        <button type="button" class="opt-face @(impact == outcome ? "is-selected" : null)"
+                                @onclick="() => impact = outcome">
+                            <span class="opt-face__emoji" aria-hidden="true">@emoji</span>
+                            <span class="opt-face__label">@label</span>
+                        </button>
+                    }
+                </div>
+                <div class="wizard__notice">
+                    El resultado se integrará al historial para ajustar las próximas sugerencias de cuidado.
+                </div>
+            }
+
+            @if (error is not null)
+            {
+                <div class="wizard__error">@error</div>
+            }
+        </div>
+
+        <div class="wizard__foot">
+            <button type="button" class="btn-back" disabled="@saving"
+                    @onclick="@(() => { if (step == 1) OnCancel.InvokeAsync(); else step = 1; })">
+                @(step == 1 ? "Cancelar" : "Atrás")
+            </button>
+
+            @if (step == 1)
+            {
+                <button type="button" class="btn-next" disabled="@(selectedId is null)"
+                        @onclick="() => step = 2">Siguiente</button>
+            }
+            else
+            {
+                <button type="button" class="btn-save" disabled="@(impact is null || saving)"
+                        @onclick="SaveAsync">@(saving ? "Guardando…" : "Guardar registro")</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string CaseId { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyList<SuggestionCard> Suggestions { get; set; } = [];
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>Se invoca con el id de la sugerencia consumida tras guardar correctamente.</summary>
+    [Parameter] public EventCallback<string> OnSaved { get; set; }
+
+    [Inject] private BlubaApiClient Api { get; set; } = default!;
+
+    private int step = 1;
+    private string? selectedId;
+    private string? impact;
+    private string? error;
+    private bool saving;
+
+    /// <summary>intervention_type está limitado a 100 caracteres por el contrato de la API.</summary>
+    private static string Truncate(string value, int max) =>
+        value.Length <= max ? value : value[..(max - 1)].TrimEnd(' ', ',', '.', ';') + "…";
+
+    private static readonly (string Outcome, string Emoji, string Label)[] Outcomes =
+    [
+        ("REGULATED", "😊", "Logró regularse rápido"),
+        ("PARTIAL", "😐", "Parcial / requirió tiempo"),
+        ("WORSENED", "🙁", "No funcionó"),
+    ];
+
+    private async Task SaveAsync()
+    {
+        if (selectedId is null || impact is null) return;
+
+        var suggestion = Suggestions.FirstOrDefault(item => item.Id == selectedId);
+        if (suggestion is null) return;
+
+        saving = true;
+        error = null;
+
+        var occurredAt = DateTime.UtcNow;
+        var created = await Api.CreateInterventionAsync(CaseId, new InterventionCreate(
+            OccurredAt: occurredAt,
+            InterventionType: Truncate(suggestion.FullStrategy, 100),
+            Description: suggestion.Detail,
+            Adherence: "APPLIED",
+            ClientInterventionId: Guid.NewGuid().ToString("n")));
+
+        if (created is null)
+        {
+            saving = false;
+            error = $"No se pudo guardar la intervención. {Api.LastError}";
+            return;
+        }
+
+        // El resultado va en una segunda llamada porque la API lo modela como inmutable.
+        var updated = await Api.UpdateInterventionOutcomeAsync(CaseId, created.Id, new InterventionOutcomeUpdate(
+            OutcomeObservedAt: occurredAt,
+            Outcome: impact));
+
+        saving = false;
+
+        if (updated is null)
+        {
+            error = $"La intervención quedó registrada, pero no se pudo guardar el resultado. {Api.LastError}";
+            return;
+        }
+
+        await OnSaved.InvokeAsync(selectedId);
+    }
+}

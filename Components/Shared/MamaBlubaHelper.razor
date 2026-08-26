@@ -1,0 +1,71 @@
+@* Panel flotante de líneas de apoyo, con el mismo contenido de la maqueta React. *@
+
+@if (open)
+{
+    <section class="helper" aria-label="Líneas de apoyo de Mamá Bluba">
+        <div class="helper__panel">
+            <button type="button" class="helper__close" aria-label="Cerrar líneas de apoyo"
+                    @onclick="Close">×</button>
+
+            <p class="helper__intro">
+                Estoy aquí para acompañarte. Si estás atravesando una crisis o necesitas orientación,
+                puedes llamar directamente:
+            </p>
+
+            <div class="helper__lines">
+                <a href="tel:*4141" class="helper__line helper__line--urgent">
+                    <span aria-hidden="true">📞</span>
+                    <span><strong>*4141</strong> — Prevención Suicidio</span>
+                </a>
+                <a href="tel:131" class="helper__line helper__line--info">
+                    <span aria-hidden="true">🚑</span>
+                    <span><strong>131</strong> — SAMU</span>
+                </a>
+            </div>
+
+            <button type="button" class="helper__toggle" aria-expanded="@moreOpen"
+                    @onclick="() => moreOpen = !moreOpen">
+                <span>Ver más líneas de ayuda</span>
+                <span aria-hidden="true" class="@(moreOpen ? "is-open" : null)">⌄</span>
+            </button>
+
+            @if (moreOpen)
+            {
+                <div class="helper__more">
+                    @foreach (var (number, display, label) in MoreLines)
+                    {
+                        <a href="tel:@number"><strong>@display</strong><span>@label</span></a>
+                    }
+                </div>
+            }
+
+            <p class="helper__foot">Llamadas gratuitas, confidenciales y disponibles 24/7.</p>
+            <span class="helper__arrow" aria-hidden="true"></span>
+        </div>
+    </section>
+}
+
+<button type="button" class="helper__fab" title="Mamá Bluba"
+        aria-label="Abrir asistente Mamá Bluba" aria-expanded="@open"
+        @onclick="() => open = !open">
+    <img src="img/mama-bluba.png" alt="Nutria mamá Bluba abrazando a su bebé" />
+</button>
+
+@code {
+    private bool open = true;
+    private bool moreOpen;
+
+    private static readonly (string Number, string Display, string Label)[] MoreLines =
+    [
+        ("6003607777", "600 360 7777", "Salud Responde (MINSAL)"),
+        ("1455", "1455", "Fono SernamEG · Orientación violencia"),
+        ("149", "149", "Fono Familia · Carabineros"),
+        ("1412", "1412", "Fono SENDA · Apoyo drogas/alcohol"),
+    ];
+
+    private void Close()
+    {
+        open = false;
+        moreOpen = false;
+    }
+}

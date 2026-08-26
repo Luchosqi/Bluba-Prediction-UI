@@ -1,0 +1,18 @@
+# Compilación de .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+
+# Configuración local: puede apuntar a otra dirección de la API
+appsettings.Development.local.json
+appsettings.Local.json
+
+# Editores
+.vs/
+.vscode/
+.idea/
+*.swp
+.DS_Store
