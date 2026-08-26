@@ -65,7 +65,7 @@
                 </p>
                 <div class="adaptive__deltas">
                     <div>
-                        <span class="adaptive__delta-label">Confianza</span>
+                        <span class="adaptive__delta-label">Cobertura de datos</span>
                         <span class="adaptive__delta-value">
                             @Pct(result.PredictionBefore.Confidence) → <b>@Pct(result.PredictionAfter.Confidence)</b>
                             <em class="@DeltaClass(result.PredictionAfter.Confidence - result.PredictionBefore.Confidence)">
@@ -80,12 +80,16 @@
                         </span>
                     </div>
                 </div>
+                <p class="adaptive__reason">
+                    Este porcentaje mide la cobertura de datos que el modelo tiene disponibles hoy para
+                    este caso; no es una escala clínica ni un diagnóstico de certeza.
+                </p>
                 @if (answered == 1 && result.PredictionAfter.Confidence < result.PredictionBefore.Confidence)
                 {
                     <p class="adaptive__hint">
                         La primera respuesta abre el registro de hoy con un solo campo completo, así que
                         la cobertura baja momentáneamente. Completa las preguntas restantes para superar
-                        el nivel de confianza inicial.
+                        la cobertura inicial.
                     </p>
                 }
             </div>

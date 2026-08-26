@@ -41,10 +41,10 @@ public static class DemoData
 
     public static IReadOnlyList<EpisodeRow> Episodes() =>
     [
-        new("demo-1", "24 ago · 19:20", "Moderada", Severity.Medium, "Regreso de una actividad familiar con ruido y muchas personas."),
-        new("demo-2", "12 jun · 08:35", "Alta", Severity.High, "Despertar temprano luego de una noche de sueño fragmentado."),
-        new("demo-3", "28 may · 17:10", "Leve", Severity.Low, "Cambio inesperado en la rutina de salida."),
-        new("demo-4", "20 may · 16:40", "Moderada", Severity.Medium, "Aumento de ruido y movimiento durante una actividad grupal."),
+        new("demo-1", "24 ago · 19:20", "Nivel 2", Severity.Medium, "Regreso de una actividad familiar con ruido y muchas personas."),
+        new("demo-2", "12 jun · 08:35", "Nivel 3", Severity.High, "Despertar temprano luego de una noche de sueño fragmentado."),
+        new("demo-3", "28 may · 17:10", "Nivel 1", Severity.Low, "Cambio inesperado en la rutina de salida."),
+        new("demo-4", "20 may · 16:40", "Nivel 2", Severity.Medium, "Aumento de ruido y movimiento durante una actividad grupal."),
     ];
 
     public static IReadOnlyList<CareRow> Care() =>

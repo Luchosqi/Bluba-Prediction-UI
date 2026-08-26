@@ -143,12 +143,17 @@ public static class BoardMapper
         return (cut > 0 ? apiIntensity[..cut] : apiIntensity).Trim();
     }
 
+    /// <summary>
+    /// Acepta tanto el vocabulario histórico ("Leve/Moderada/Severa", generado por datos
+    /// sintéticos e importados) como la escala nueva "Nivel 0-4" (ver docs/CAMBIO_ESCALA_DESREGULACION.md),
+    /// para que los episodios antiguos no queden mal coloreados en el historial.
+    /// </summary>
     public static Severity SeverityOf(string apiIntensity)
     {
         var text = apiIntensity.ToLowerInvariant();
-        if (text.StartsWith("leve")) return Severity.Low;
-        if (text.StartsWith("moderada")) return Severity.Medium;
-        return Severity.High;
+        if (text.StartsWith("leve") || text.StartsWith("nivel 0") || text.StartsWith("nivel 1")) return Severity.Low;
+        if (text.StartsWith("moderada") || text.StartsWith("nivel 2")) return Severity.Medium;
+        return Severity.High; // severa / nivel 3 / nivel 4
     }
 
     /// <summary>

@@ -80,9 +80,13 @@ respaldo y el resto sigue con datos reales.
   `wallet_score` de la API es su complemento (`100 × (1 − risk_probability)`).
 - **Los cuartiles del arco** (0-25 bajo, 25-50 moderado, 50-75 alto, 75-100 muy alto) se
   conservan tal cual venían de la maqueta; sólo el ángulo de la aguja se calcula.
-- **Vocabulario de intensidad.** Los asistentes envían los valores que ya usa el dataset
-  (`Leve (1-3)`, `Moderada (4-7)`, `Severa (8-10)`) para que los filtros por intensidad
-  coincidan con los registros históricos.
+- **Vocabulario de intensidad.** El asistente de desregulación envía `Nivel 1 (Activación
+  leve)` … `Nivel 4 (Crisis / riesgo de seguridad)`, una escala ordinal 0-4 basada en EOQ/EDI
+  (ver `docs/CAMBIO_ESCALA_DESREGULACION.md`) que reemplaza la escala previa
+  `Leve/Moderada/Severa (1-10)`, sin respaldo bibliográfico. `BoardMapper.SeverityOf` reconoce
+  ambos formatos para no romper el coloreado de episodios históricos, pero el filtro por tipo
+  del historial sólo hace *match* exacto contra el vocabulario nuevo: los episodios antiguos
+  no aparecerán al filtrar por nivel hasta que el backend normalice el campo (ver el .md).
 - **Las marcas de tiempo de la API se interpretan como UTC.** La API las escribe con
   `_naive_utc()` y las devuelve sin sufijo de zona, así que el frontend las convierte a hora
   local antes de mostrarlas. Ver la advertencia de abajo.
