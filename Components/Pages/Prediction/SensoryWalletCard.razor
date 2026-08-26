@@ -19,6 +19,14 @@
             <path d="M 131 34 A 92 92 0 0 1 194 61" fill="none" stroke="#f4ddcb" stroke-width="22" />
             <path d="M 194 61 A 92 92 0 0 1 222 126" fill="none" stroke="#f1d2d2" stroke-width="22" />
 
+            @* Marca del umbral de alerta calibrado por el modelo (decision_threshold), no un corte
+               clínico fijo — ver docs/CAMBIO_ESCALA_DESREGULACION.md §8.4. *@
+            @if (ThresholdTick is { } tick)
+            {
+                <line x1="@Fmt(tick.X1)" y1="@Fmt(tick.Y1)" x2="@Fmt(tick.X2)" y2="@Fmt(tick.Y2)"
+                      stroke="#2a5c91" stroke-width="3" stroke-linecap="round" />
+            }
+
             <text x="130" y="111" text-anchor="middle" fill="#2a5c91" font-size="49" font-weight="700">@Gauge.Score</text>
 
             <path d="M @Fmt(NeedleX) @Fmt(NeedleY) L 131 125" stroke="#2a5c91" stroke-width="4" stroke-linecap="round" />
@@ -37,6 +45,14 @@
             <span><i style="background:#e68045"></i>Alto</span>
             <span><i style="background:#ce5959"></i>Muy alto</span>
         </div>
+        @if (Gauge.DecisionThreshold is { } threshold)
+        {
+            <p class="state-note">
+                La marca oscura del arco indica el umbral de alerta que el modelo calibró para
+                este caso (@PctOf(threshold)); los colores de fondo son una referencia visual, no
+                un corte clínico validado.
+            </p>
+        }
     </div>
 
     <div class="gauge__stats">
@@ -132,6 +148,25 @@
     private double AngleRad => Math.PI * (1 - Math.Clamp(Gauge.Score, 0, 100) / 100d);
     private double NeedleX => CenterX + NeedleLength * Math.Cos(AngleRad);
     private double NeedleY => CenterY - NeedleLength * Math.Sin(AngleRad);
+
+    /// <summary>
+    /// Marca del umbral de alerta (decision_threshold) que ya calcula la API optimizando costo de
+    /// falsos negativos/positivos (ver app/prediction/training.py: optimize_alert_threshold). Se
+    /// dibuja como una línea corta cruzando el arco, en el mismo radio que su franja de color.
+    /// </summary>
+    private (double X1, double Y1, double X2, double Y2)? ThresholdTick
+    {
+        get
+        {
+            if (Gauge.DecisionThreshold is not { } threshold) return null;
+            var angle = Math.PI * (1 - Math.Clamp(threshold, 0, 1));
+            var cos = Math.Cos(angle);
+            var sin = Math.Sin(angle);
+            return (CenterX + 79 * cos, CenterY - 79 * sin, CenterX + 105 * cos, CenterY - 105 * sin);
+        }
+    }
+
+    private static string PctOf(double value) => $"{value * 100:0}%";
 
     private string DeltaText
     {

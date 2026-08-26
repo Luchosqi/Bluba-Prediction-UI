@@ -133,6 +133,14 @@
                                     @onclick="() => support = option">@option</button>
                         }
                     </div>
+                    @if (support == "Presión profunda / Chaleco")
+                    {
+                        <p class="wizard__notice">
+                            Evidencia limitada/mixta en la literatura para chalecos de presión
+                            (Stephenson &amp; Carter, 2009): úsalo sólo si ya fue acordado con el
+                            equipo terapéutico.
+                        </p>
+                    }
                     <p class="wizard__group-label">Efectividad</p>
                     <div class="opt-grid-3">
                         @foreach (var option in Effects)

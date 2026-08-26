@@ -34,7 +34,8 @@ public static class BoardMapper
             ConfidencePercent: (int)Math.Round(prediction.Confidence * 100),
             DeltaPoints: comparable ? change!.RiskChange.DeltaProbabilityPoints : null,
             Trend: trend,
-            ComparisonNote: comparable ? null : ComparisonNoteFor(change?.Reason));
+            ComparisonNote: comparable ? null : ComparisonNoteFor(change?.Reason),
+            DecisionThreshold: prediction.DecisionThreshold);
     }
 
     private static string? ComparisonNoteFor(string? reason) => reason switch

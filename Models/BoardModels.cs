@@ -34,7 +34,10 @@ public sealed record RiskGauge(
     int ConfidencePercent,
     double? DeltaPoints,
     IReadOnlyList<(string Label, int Score, string Level)> Trend,
-    string? ComparisonNote = null);
+    string? ComparisonNote = null,
+    // 0-1: umbral de alerta calibrado por el modelo (decision_threshold de la API); null cuando
+    // no viene informado (p. ej. datos de respaldo sin modelo entrenado).
+    double? DecisionThreshold = null);
 
 /// <summary>Filtros de período que ofrecen ambos historiales.</summary>
 public enum PeriodFilter { Last7Days, Today, Yesterday, LastMonth, All }
