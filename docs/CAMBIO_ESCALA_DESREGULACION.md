@@ -13,6 +13,15 @@ afirmación clínica más fuerte de lo que realmente son. Este cambio reemplaza 
 una versión trazable a literatura científica reciente, dejando explícito qué sí está validado y
 qué es una propuesta piloto pendiente de validación propia.
 
+**Registro de revisiones**
+
+- **2026-08-26 (v1):** escala de severidad, "Confianza", Fono SENDA (§2–§5).
+- **2026-08-26 (v2):** una segunda revisión (code review) detectó 4 elementos que habían
+  quedado sin revisar en v1: preguntas de check-in diario, lista de "formas de calmar",
+  categorías de lugar/transición/desencadenante, y los colores/cortes del medidor de riesgo.
+  Se agregó la sección **§8** con la justificación bibliográfica de cada uno (o la señal
+  explícita de que no la tiene, en el caso del medidor).
+
 ---
 
 ## 1. Resumen de cambios por archivo (frontend)
@@ -29,6 +38,10 @@ qué es una propuesta piloto pendiente de validación propia.
 | `Components/Shared/MamaBlubaHelper.razor` | Se eliminó la línea **Fono SENDA (1412)** de los números de apoyo | §5 |
 | `wwwroot/app.css` | Nueva clase `.opt-grid-2` (grilla 2×2 para los 4 niveles) | — |
 | `README.md` | Actualizada la sección "Decisiones de mapeo" con el nuevo vocabulario | — |
+| `Services/AdaptiveCatalog.cs` (check-in diario) | **Sin cambio de código** — revisado y justificado por primera vez en v2 | §8.1 |
+| `DysregulationWizard.razor` (`Supports`, "formas de calmar") | **Sin cambio de código** — justificado; una opción (chaleco de presión) queda marcada como evidencia débil/mixta | §8.2 |
+| `DysregulationWizard.razor` (`Locations`, `Transitions`, `Triggers`) | **Sin cambio de código** — justificado bajo el marco de Evaluación Funcional de Conducta (FBA) | §8.3 |
+| `SensoryWalletCard.razor` (cuartiles y colores del medidor) | **Sin justificación clínica encontrada** — es una convención de UX, no un corte validado; recomendación concreta pendiente de implementar | §8.4 |
 
 ---
 
@@ -209,11 +222,30 @@ lugar exacto donde se usan en el frontend.
 | [6] | Teixeira, M. C. T. V., Lowenthal, R., Rattazzi, A., Cukier, S., Valdez, D., Garcia, R., Garrido Candela, G., Rosoli Murillo, A., Pereira da Silva Leite, F., Pinheiro, G., Woodcock, K., Chung, J. C. Y., Mevorach, C., Montiel-Nava, C., & Silvestre Paula, C. (2024). Understanding emotional outbursts: A cross-cultural study in Latin American children with autism spectrum disorder. *Brain Sciences, 14*(10), 1010. https://doi.org/10.3390/brainsci14101010 | **Fuente directa** de las dimensiones intensidad/duración/recuperación/conductas del Paso 1 (`DysregulationWizard.razor`); incluye muestra chilena (15,2%) |
 | [7] | Estudio de *Scientific Reports* (2024) sobre comparación intra-sujeto de crisis más y menos severas en autismo (agresión, autolesión y activación fisiológica asociadas a mayor severidad) | Fundamenta la regla de auto-ajuste a Nivel 4 al marcar agresión física/autolesión en el checklist del Paso 1. **Pendiente:** completar autor(es)/DOI exactos — no se registró la cita completa en la revisión original; verificar antes de citarlo en un informe formal |
 | [8] | Artículo (2026). Cognitive, Behavioural and Communication Correlates of Dysregulation in Australian Autistic Preschoolers. *Journal of Autism and Developmental Disorders*. https://doi.org/10.1007/s10803-026-07387-0 | Precedente de **tiers discretos** (CBCL-DP: típico / moderado / severo) usado como inspiración para tener niveles discretos en vez de un puntaje continuo — no se usa el CBCL-DP en sí, sólo el precedente metodológico |
+| [9] | Owens, J. A., Spirito, A., & McGuinn, M. (2000). The Children's Sleep Habits Questionnaire (CSHQ): Psychometric properties of a survey instrument for school-aged children. *Sleep, 23*(8), 1043–1051. | Base de las subescalas de sueño (conciliación, despertares nocturnos) usadas como fundamento de las opciones de "Calidad del sueño" (§8.1) |
+| [10] | Mazurek, M. O., & Sohl, K. (2016). Sleep and behavioral problems in children with autism spectrum disorder. *Journal of Autism and Developmental Disorders, 46*(6), 1906–1915. https://doi.org/10.1007/s10803-016-2723-7 | Asociación entre problemas de sueño y conducta en autismo (§8.1) |
+| [11] | Goldman, S. E., McGrew, S., Johnson, K. P., Richdale, A. L., Clemons, T., & Malow, B. A. (2011). Sleep is associated with problem behaviors in children and adolescents with Autism Spectrum Disorders. *Research in Autism Spectrum Disorders, 5*(3), 1223–1229. https://doi.org/10.1016/j.rasd.2011.01.010 | Sustenta la pregunta "Estado al despertar" (irritabilidad matutina ligada al descanso) (§8.1) |
+| [12] | Chaidez, V., Hansen, R. L., & Hertz-Picciotto, I. (2014). Gastrointestinal problems in children with autism, developmental delays or typical development. *Journal of Autism and Developmental Disorders, 44*(5), 1117–1127. https://doi.org/10.1007/s10803-013-1973-x | Prevalencia de problemas GI en autismo, base de la pregunta "Estado gastrointestinal" (§8.1) |
+| [13] | Mazurek, M. O., Vasa, R. A., Kalb, L. G., Kanne, S. M., Rosenberg, D., Keefer, A., Murray, D. S., Freedman, B., & Lowery, L. A. (2013). Anxiety, sensory over-responsivity, and gastrointestinal problems in children with autism spectrum disorders. *Journal of Abnormal Child Psychology, 41*(1), 165–176. https://doi.org/10.1007/s10802-012-9668-x | Vincula síntomas GI con ansiedad/desregulación, no sólo con malestar físico (§8.1) |
+| [14] | Case-Smith, J., Weaver, L. L., & Fristad, M. A. (2015). A systematic review of sensory processing interventions for children with autism spectrum disorders. *Autism, 19*(2), 133–148. https://doi.org/10.1177/1362361313517762 | Revisión sistemática de intervenciones sensoriales (base de "Audífonos" y estrategias sensoriales en general) (§8.2) |
+| [15] | Watling, R., & Hauer, S. (2015). Effectiveness of Ayres Sensory Integration® and sensory-based interventions for people with autism spectrum disorder: A systematic review. *American Journal of Occupational Therapy, 69*(5), 6905180030p1–6905180030p12. https://doi.org/10.5014/ajot.2015.018051 | Segunda revisión sistemática independiente sobre intervenciones sensoriales (§8.2) |
+| [16] | Steinbrenner, J. R., Hume, K., Odom, S. L., Morin, K. L., Nowell, S. W., Tomaszewski, B., Szendrey, S., McIntyre, N. S., Yücesoy-Özkan, S., & Savage, M. N. (2020). *Evidence-based practices for children, youth, and young adults with Autism.* National Clearinghouse on Autism Evidence and Practice Review Team, University of North Carolina at Chapel Hill. | Clasifica "Apoyo visual" y "Intervención basada en antecedentes" como prácticas basadas en evidencia — base de "Apoyo visual/Pictogramas" y "Espacio seguro/Calma" (§8.2) |
+| [17] | Stephenson, J., & Carter, M. (2009). The use of weighted vests with children with autism spectrum disorders and other disabilities. *Journal of Autism and Developmental Disorders, 39*(1), 105–114. https://doi.org/10.1007/s10803-008-0605-3 | Revisión específica de chalecos de presión: concluye evidencia **débil/mixta** — motiva la recomendación de agregar una nota de cautela a esa opción (§8.2) |
+| [18] | O'Neill, R. E., Horner, R. H., Albin, R. W., Sprague, J. R., Storey, K., & Newton, J. S. (1997). *Functional Assessment and Program Development for Problem Behavior: A Practical Handbook* (2nd ed.). Brooks/Cole. | Manual de referencia de Evaluación Funcional de Conducta (FBA); base de las categorías de lugar/transición/desencadenante (§8.3) |
+| [19] | Iwata, B. A., Dorsey, M. F., Slifer, K. J., Bauman, K. E., & Richman, G. S. (1994). Toward a functional analysis of self-injury. *Journal of Applied Behavior Analysis, 27*(2), 197–209. (Reimpresión del original de 1982) | Artículo fundacional del análisis funcional de la conducta (§8.3) |
+| [20] | Flannery, K. B., & Horner, R. H. (1994). The relationship between predictability and problem behavior for students with severe disabilities. *Journal of Behavioral Education, 4*(2), 157–176. | Sustenta por qué "transición previa" es un antecedente relevante a registrar (§8.3). **Verificar cita exacta** antes de usar en un informe formal |
+| [21] | Youden, W. J. (1950). Index for rating diagnostic tests. *Cancer, 3*(1), 32–35. | Referencia clásica de optimización de un punto de corte a partir de datos, en vez de un valor arbitrario — precedente metodológico de `optimize_alert_threshold` (§8.4) |
+| [22] | Vickers, A. J., & Elkin, E. B. (2006). Decision curve analysis: a novel method for evaluating prediction models. *Medical Decision Making, 26*(6), 565–574. https://doi.org/10.1177/0272989X06295361 | Metodología de selección de umbral bajo costos asimétricos — coincide con lo que ya hace `training.py: optimize_alert_threshold` (§8.4) |
+| [23] | Fagerlin, A., Zikmund-Fisher, B. J., & Ubel, P. A. (2011). Helping patients decide: ten steps to better risk communication. *Journal of the National Cancer Institute, 103*(19), 1436–1443. https://doi.org/10.1093/jnci/djr318 | Buenas prácticas de comunicación de riesgo: anclar colores/cortes a algo interpretable, no a una división matemática arbitraria (§8.4) |
 
-⚠️ **Pendiente de verificar:** la referencia [7] no se registró con autor/DOI completos en la
-consulta bibliográfica original. Antes de citarla en cualquier documento externo (paper, informe
-a un comité de ética, material de difusión), hay que recuperar la cita completa desde la fuente
-original o remplazarla por una equivalente verificada.
+⚠️ **Pendiente de verificar:** las referencias [7] y [20] no se registraron con datos
+bibliográficos 100% completos/contrastados en la revisión original. Antes de citarlas en
+cualquier documento externo (paper, informe a un comité de ética, material de difusión), hay que
+confirmar la cita exacta desde la fuente original o reemplazarlas por una equivalente verificada.
+El resto de las referencias ([1]–[6], [8]–[19] salvo [20], y [21]–[23]) corresponden a trabajos
+ampliamente citados y con datos bibliográficos consistentes, pero de todas formas se recomienda
+verificarlas contra la fuente original antes de usarlas en una publicación o presentación a un
+comité de ética.
 
 ---
 
@@ -227,10 +259,115 @@ original o remplazarla por una equivalente verificada.
 - La escala Nivel 0-4 es una **propuesta compuesta**, no un instrumento publicado y validado en
   sí mismo. Cualquier comunicación externa debe dejarlo explícito (ver §2).
 - La referencia [7] necesita completarse antes de usarse fuera de este documento interno.
+- **(v2)** El medidor de riesgo usa cuartiles de color (25/50/75) sin respaldo clínico, mientras
+  la API ya expone un `decision_threshold` calibrado que hoy se descarta en el frontend — ver
+  §8.4 para la recomendación concreta, aún no implementada.
+- **(v2)** "Presión profunda / Chaleco" en la lista de formas de calmar tiene evidencia
+  débil/mixta en la literatura ([17]) — ver §8.2.
 
 ---
 
-## 8. Guion de demo (≈ 1:30 min)
+## 8. Elementos revisados en la segunda pasada (v2)
+
+Estos 4 puntos los marcó una revisión de código posterior a v1 como "quedó como estaba, sin
+revisión". Se investigó cada uno; el resultado no es igual para los 4: los primeros tres sí
+tienen respaldo bibliográfico razonable y no requieren cambio de código, mientras que el último
+(el medidor) **no tiene** un corte clínico que lo justifique y sí requiere una decisión del
+equipo.
+
+### 8.1 Check-in diario (`Services/AdaptiveCatalog.cs`)
+
+| Pregunta | Opciones actuales | Justificación | Cita |
+| --- | --- | --- | --- |
+| Calidad del sueño | Reparador / Interrumpido / Dificultad de conciliación | Los problemas de sueño (despertares nocturnos, latencia de conciliación) son uno de los correlatos conductuales mejor documentados en autismo; estas tres categorías reflejan subescalas estándar de instrumentos de sueño pediátrico | [9], [10] |
+| Estado al despertar | Tranquilo / Irritable-Llorando | La irritabilidad matutina como consecuencia de mal descanso nocturno está documentada específicamente en autismo | [11] |
+| Regulación durante el día | Excelente / Estable con apoyo / Desregulación frecuente | Es una versión de check-in de 1 pregunta del mismo continuo de reactividad que mide el EDI (ya citado en §2) — no es un instrumento nuevo, es una simplificación operacional del mismo constructo | [1], [2] |
+| Estado gastrointestinal | Normal / Estreñimiento / Diarrea | Los síntomas gastrointestinales se asocian consistentemente con mayor ansiedad, irritabilidad y sobre-respuesta sensorial en niños autistas | [12], [13] |
+| Adherencia a la medicación | Adherente / Parcial / No aplica | **No es una escala clínica**, es seguimiento operacional estándar de adherencia terapéutica (igual que "resultado de intervención" en §3). No se buscó ni se necesita una escala psicométrica para esto — sólo se deja explícito para que no se confunda con las demás preguntas | — |
+
+**Conclusión:** no se requiere cambiar texto ni opciones; las 4 primeras preguntas ya eran
+razonables y ahora quedan documentadas, y la de medicación queda explícitamente marcada como
+"seguimiento operacional, no escala clínica" (mismo criterio aplicado a "Confianza" en §4).
+
+### 8.2 Formas de calmar (lista `Supports` del wizard de desregulación)
+
+| Opción | Justificación | Cita |
+| --- | --- | --- |
+| Audífonos (cancelación de ruido) | Estrategias de bloqueo/reducción auditiva están dentro de las intervenciones sensoriales con evidencia revisada sistemáticamente en autismo | [14], [15] |
+| Apoyo visual / Pictogramas | Es una de las prácticas **con mayor nivel de evidencia** en autismo según la revisión sistemática más citada del campo (National Clearinghouse on Autism Evidence and Practice) | [16] |
+| Espacio seguro / Calma | Corresponde a "Intervención basada en antecedentes" (Antecedent-Based Intervention), también clasificada como práctica basada en evidencia | [16] |
+| Presión profunda / Chaleco | **Evidencia débil/mixta.** La revisión específica sobre chalecos de presión en autismo concluyó que la evidencia disponible era insuficiente para sustentar su uso como intervención basada en evidencia | [17] |
+
+**Recomendación:** no se requiere sacar el chaleco de presión (sigue siendo una estrategia
+usada en la práctica real y reportada por familias), pero sí sería honesto agregar, igual que se
+hizo con "Confianza" en §4, una nota breve tipo *"evidencia limitada, incluir sólo si ya fue
+acordado con el equipo terapéutico"* la próxima vez que se edite ese archivo. No se implementó
+en este documento porque el pedido de esta ronda fue sólo buscar citas y actualizar el `.md`.
+
+### 8.3 Lugar, transición previa y desencadenante (`Locations`, `Transitions`, `Triggers`)
+
+Estas tres listas no son una escala clínica: son categorías de **antecedentes**, el componente
+central de la Evaluación Funcional de Conducta (*Functional Behavior Assessment*, FBA), el marco
+más establecido en la literatura de análisis conductual aplicado para registrar dónde, cuándo y
+qué precede a un episodio. "Lugar" y "transición previa" corresponden al concepto de *setting
+events* / antecedentes inmediatos; "desencadenante" corresponde al estímulo discriminativo. Este
+marco es exactamente lo que hace el wizard con sus 3 preguntas del Paso 2 y 3.
+
+| Cita | Qué aporta |
+| --- | --- |
+| [18] | Manual de referencia del método FBA: cómo identificar antecedentes (lugar, rutina, transición) previo a un episodio |
+| [19] | Artículo fundacional del análisis funcional como metodología para vincular antecedentes con la conducta problema |
+| [20] | Evidencia específica de que la previsibilidad de las transiciones se relaciona con la frecuencia de conducta problema — sustenta por qué "transición previa" es una pregunta relevante y no arbitraria |
+
+**Conclusión:** las categorías actuales (Escuela/Aula, Recreo, Furgón/Trayecto, Casa/Entrada,
+Terapia; Salida del colegio, Cambio de actividad, Llegada a casa, Sin cambio evidente) son
+consistentes con cómo la literatura de FBA agrupa antecedentes. No se requiere cambiarlas.
+
+### 8.4 Colores y cortes del medidor de riesgo (Billetera Sensorial)
+
+Este es el único de los 4 puntos donde la respuesta honesta es **"no hay literatura clínica que
+justifique estos cortes específicos"**, y hay que decirlo así en vez de forzar una cita.
+
+**Qué son hoy:** `SensoryWalletCard.razor` dibuja un arco de 4 cuartiles fijos (0-25 verde,
+25-50 amarillo, 50-75 naranja, 75-100 rojo) sobre `risk_probability × 100`. Son cuartiles
+matemáticos parejos (25 puntos cada uno) heredados de la maqueta original — **no** están
+calibrados contra ningún desenlace real del modelo.
+
+**El hallazgo importante:** la propia API **ya calcula** un punto de corte con fundamento
+estadístico y no lo estamos usando. `app/prediction/training.py:101`
+(`optimize_alert_threshold`) busca, sobre datos de calibración, el umbral que minimiza el costo
+combinado de falsos negativos y falsos positivos (con costos configurables), y ese valor viaja
+en la respuesta de `GET /cases/{id}/predictions/latest` como `decision_threshold` +
+`alert_triggered` (`app/schemas/case.py:47-48`, ya modelado en el frontend en
+`Models/ApiModels.cs: RiskPrediction.DecisionThreshold/AlertTriggered`). **El medidor nunca lee
+ese campo**: `Models/BoardModels.cs: RiskGauge` no lo incluye y `Services/BoardMapper.ToGauge()`
+no lo mapea, así que hoy se descarta.
+
+Esto es exactamente el tipo de metodología (optimización de umbral sobre datos de validación,
+en vez de un corte redondo arbitrario) que sí tiene respaldo metodológico sólido en la
+literatura de modelos predictivos clínicos:
+
+| Cita | Qué aporta |
+| --- | --- |
+| [21] | Referencia clásica del método de optimizar un punto de corte a partir de datos de validación (índice de Youden), en vez de fijar un valor arbitrario como 50 |
+| [22] | Guía metodológica sobre selección de umbrales de decisión bajo costos asimétricos (exactamente lo que hace `optimize_alert_threshold`) |
+| [23] | Buenas prácticas de comunicación de riesgo: recomienda anclar los cortes de color a algo interpretable (un umbral de decisión real), no a una división matemática sin significado clínico |
+
+**Recomendación concreta (no implementada aún, requiere decisión del equipo):**
+
+1. Mapear `decision_threshold` desde `RiskPrediction` hasta `RiskGauge` en
+   `BoardMapper.ToGauge()`, y marcar visualmente esa posición en el arco del medidor (en vez de,
+   o además de, los 4 cuartiles parejos).
+2. Cambiar el copy: de "verde/amarillo/naranja/rojo por cuartil matemático" a algo explícito
+   como *"la franja roja marca el umbral que el modelo calibró como punto de alerta para este
+   caso"*, siguiendo el mismo criterio de honestidad ya aplicado a "Confianza" en §4.
+3. Si el equipo prefiere mantener los 4 cuartiles visuales por legibilidad, como mínimo agregar
+   un tooltip aclarando que son una convención de visualización y no un corte clínico validado
+   — para no repetir el mismo problema que motivó todo este documento.
+
+---
+
+## 9. Guion de demo (≈ 1:30 min)
 
 Pensado para que el compañero que presenta la demo lo siga paso a paso. Requiere la app corriendo
 contra la API real (o en modo demo si `/health` no responde — igual funciona, cae a `DemoData.cs`
