@@ -21,6 +21,10 @@ qué es una propuesta piloto pendiente de validación propia.
   categorías de lugar/transición/desencadenante, y los colores/cortes del medidor de riesgo.
   Se agregó la sección **§8** con la justificación bibliográfica de cada uno (o la señal
   explícita de que no la tiene, en el caso del medidor).
+- **2026-08-26 (v3):** se implementaron en código las 2 recomendaciones de §8 que seguían
+  pendientes: la nota de evidencia débil para el chaleco de presión (§8.2) y la marca del
+  `decision_threshold` real de la API sobre el medidor de riesgo (§8.4). Probado en navegador
+  contra la API real.
 
 ---
 
@@ -39,9 +43,9 @@ qué es una propuesta piloto pendiente de validación propia.
 | `wwwroot/app.css` | Nueva clase `.opt-grid-2` (grilla 2×2 para los 4 niveles) | — |
 | `README.md` | Actualizada la sección "Decisiones de mapeo" con el nuevo vocabulario | — |
 | `Services/AdaptiveCatalog.cs` (check-in diario) | **Sin cambio de código** — revisado y justificado por primera vez en v2 | §8.1 |
-| `DysregulationWizard.razor` (`Supports`, "formas de calmar") | **Sin cambio de código** — justificado; una opción (chaleco de presión) queda marcada como evidencia débil/mixta | §8.2 |
+| `DysregulationWizard.razor` (`Supports`, "formas de calmar") | Nota condicional agregada al elegir "Presión profunda / Chaleco" (evidencia débil/mixta) | §8.2 |
 | `DysregulationWizard.razor` (`Locations`, `Transitions`, `Triggers`) | **Sin cambio de código** — justificado bajo el marco de Evaluación Funcional de Conducta (FBA) | §8.3 |
-| `SensoryWalletCard.razor` (cuartiles y colores del medidor) | **Sin justificación clínica encontrada** — es una convención de UX, no un corte validado; recomendación concreta pendiente de implementar | §8.4 |
+| `SensoryWalletCard.razor` + `Models/BoardModels.cs` + `Services/BoardMapper.cs` (medidor) | **Sin justificación clínica para los cuartiles de color** (se mantienen por legibilidad) — se agregó la marca del `decision_threshold` real de la API sobre el arco + nota aclaratoria | §8.4 |
 
 ---
 
@@ -259,11 +263,13 @@ comité de ética.
 - La escala Nivel 0-4 es una **propuesta compuesta**, no un instrumento publicado y validado en
   sí mismo. Cualquier comunicación externa debe dejarlo explícito (ver §2).
 - La referencia [7] necesita completarse antes de usarse fuera de este documento interno.
-- **(v2)** El medidor de riesgo usa cuartiles de color (25/50/75) sin respaldo clínico, mientras
-  la API ya expone un `decision_threshold` calibrado que hoy se descarta en el frontend — ver
-  §8.4 para la recomendación concreta, aún no implementada.
-- **(v2)** "Presión profunda / Chaleco" en la lista de formas de calmar tiene evidencia
-  débil/mixta en la literatura ([17]) — ver §8.2.
+- **(v2, implementado en v3)** El medidor de riesgo usa cuartiles de color (25/50/75) sin
+  respaldo clínico. Se mapeó `decision_threshold` de la API al medidor y se dibuja como marca
+  sobre el arco, con nota aclaratoria — ver §8.4. Los cuartiles de color siguen siendo una
+  convención visual (se mantienen por legibilidad), ahora con esa salvedad explícita en pantalla.
+- **(v2, implementado en v3)** "Presión profunda / Chaleco" en la lista de formas de calmar
+  tiene evidencia débil/mixta en la literatura ([17]) — se agregó una nota condicional en el
+  wizard cuando se selecciona esa opción. Ver §8.2.
 
 ---
 
@@ -298,11 +304,12 @@ razonables y ahora quedan documentadas, y la de medicación queda explícitament
 | Espacio seguro / Calma | Corresponde a "Intervención basada en antecedentes" (Antecedent-Based Intervention), también clasificada como práctica basada en evidencia | [16] |
 | Presión profunda / Chaleco | **Evidencia débil/mixta.** La revisión específica sobre chalecos de presión en autismo concluyó que la evidencia disponible era insuficiente para sustentar su uso como intervención basada en evidencia | [17] |
 
-**Recomendación:** no se requiere sacar el chaleco de presión (sigue siendo una estrategia
-usada en la práctica real y reportada por familias), pero sí sería honesto agregar, igual que se
-hizo con "Confianza" en §4, una nota breve tipo *"evidencia limitada, incluir sólo si ya fue
-acordado con el equipo terapéutico"* la próxima vez que se edite ese archivo. No se implementó
-en este documento porque el pedido de esta ronda fue sólo buscar citas y actualizar el `.md`.
+**Implementado (v3):** no se sacó el chaleco de presión (sigue siendo una estrategia usada en la
+práctica real y reportada por familias). Se agregó una nota condicional en
+`DysregulationWizard.razor`, Paso 4: al seleccionar "Presión profunda / Chaleco" aparece *"Evidencia
+limitada/mixta en la literatura (Stephenson & Carter, 2009): úsalo sólo si ya fue acordado con el
+equipo terapéutico"*, con la misma clase `wizard__notice` ya usada para el aviso de auto-ajuste
+de nivel (§2), sin agregar componentes ni CSS nuevos.
 
 ### 8.3 Lugar, transición previa y desencadenante (`Locations`, `Transitions`, `Triggers`)
 
@@ -353,17 +360,26 @@ literatura de modelos predictivos clínicos:
 | [22] | Guía metodológica sobre selección de umbrales de decisión bajo costos asimétricos (exactamente lo que hace `optimize_alert_threshold`) |
 | [23] | Buenas prácticas de comunicación de riesgo: recomienda anclar los cortes de color a algo interpretable (un umbral de decisión real), no a una división matemática sin significado clínico |
 
-**Recomendación concreta (no implementada aún, requiere decisión del equipo):**
+**Implementado (v3), opción 1 + una versión de la 2:**
 
-1. Mapear `decision_threshold` desde `RiskPrediction` hasta `RiskGauge` en
-   `BoardMapper.ToGauge()`, y marcar visualmente esa posición en el arco del medidor (en vez de,
-   o además de, los 4 cuartiles parejos).
-2. Cambiar el copy: de "verde/amarillo/naranja/rojo por cuartil matemático" a algo explícito
-   como *"la franja roja marca el umbral que el modelo calibró como punto de alerta para este
-   caso"*, siguiendo el mismo criterio de honestidad ya aplicado a "Confianza" en §4.
-3. Si el equipo prefiere mantener los 4 cuartiles visuales por legibilidad, como mínimo agregar
-   un tooltip aclarando que son una convención de visualización y no un corte clínico validado
-   — para no repetir el mismo problema que motivó todo este documento.
+1. `Models/BoardModels.cs: RiskGauge` ahora tiene un campo `DecisionThreshold` (0-1, nullable) y
+   `Services/BoardMapper.ToGauge()` lo mapea desde `RiskPrediction.DecisionThreshold`.
+   `SensoryWalletCard.razor` dibuja una línea corta cruzando el arco en el ángulo correspondiente
+   (mismo cálculo de ángulo que ya usaba la aguja, radio 79–105 para cruzar el grosor del arco).
+2. Debajo de la leyenda de colores se agregó, con la clase `.state-note` ya existente (sin CSS
+   nuevo), el texto: *"La marca oscura del arco indica el umbral de alerta que el modelo calibró
+   para este caso (X%); los colores de fondo son una referencia visual, no un corte clínico
+   validado."* Sólo se muestra cuando la API entrega el dato (`DecisionThreshold` no nulo); en
+   modo demostración (`DemoData.cs`) no se inventó un valor, así que ahí no aparece marca ni nota.
+3. Se mantuvieron los 4 cuartiles de color por legibilidad (opción 3 del borrador), combinada con
+   la marca real del umbral en vez de reemplazarlos — es la combinación menos invasiva con el
+   diseño existente.
+
+**Verificado en navegador** contra la API real (`PAC-000`): `decision_threshold = 15 %`, la
+marca aparece correctamente sobre la franja verde, muy cerca de la aguja (Score 13). Los
+episodios históricos con vocabulario antiguo (`"Intensidad: Severa"`, `"Intensidad: Moderada"`)
+se siguen coloreando bien gracias a la compatibilidad agregada en `BoardMapper.SeverityOf()`
+(§2).
 
 ---
 
