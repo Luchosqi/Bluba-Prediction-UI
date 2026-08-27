@@ -32,6 +32,13 @@ qué es una propuesta piloto pendiente de validación propia.
   `decision_threshold` y su nota del medidor (quedó sólo el gráfico + Confianza + Faltan datos,
   igual que antes), y se quitaron las menciones a la ruta de este archivo dentro de textos
   visibles en la UI. Ver §2 y §8.4 actualizados, y el aviso para el backend al final de §2.
+- **2026-08-26 (v5):** segunda decisión de producto, más profunda: el wizard de 5 pasos completo
+  se colapsó a **una sola pantalla**: 4 botones de nivel (Leve / Moderada / Alta / Crisis · riesgo
+  de seguridad) + un textarea de "Contexto en palabras". Se sacaron por completo los pasos de
+  lugar/transición (§8.3), desencadenante y apoyo/efectividad (§8.2, incluida la nota del
+  chaleco de presión) — esas categorías ya no existen en la UI. `Type`, `StrategyApplied` y
+  `StrategyResult` ahora viajan a la API como **valores fijos**, no elegidos por la familia. Ver
+  §2, §8.2 y §8.3 actualizados, y la sección de implicancias para el backend al final de §2.
 
 ---
 
@@ -39,7 +46,7 @@ qué es una propuesta piloto pendiente de validación propia.
 
 | Archivo | Cambio | Por qué |
 | --- | --- | --- |
-| `Components/Pages/Prediction/DysregulationWizard.razor` | Paso 1: escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" → escala ordinal **Nivel 1-4**, como botones simples (mismo estilo que el resto del wizard). **(v4)** Sin duración/recuperación/checklist de conductas — se probaron en v2/v3 y se sacaron por exceso de campos | §2 |
+| `Components/Pages/Prediction/DysregulationWizard.razor` | **(v5)** Ya no es un wizard de varios pasos: una sola pantalla con la escala **Leve/Moderada/Alta/Crisis · riesgo de seguridad** (botones) + un textarea de contexto libre. Escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" con rangos inventados → nombres justificados por literatura | §2 |
 | `Components/Pages/Prediction/InterventionWizard.razor` | Nota de trazabilidad: mismo criterio de resultado (regulación exitosa/parcial/sin efecto) que el registro de desregulaciones | §3 |
 | `Components/Pages/Prediction/PredictionBoard.razor` | Filtro "Tipo" del historial de desregulaciones actualizado a Nivel 1-4 | §2 |
 | `Services/BoardMapper.cs` | `SeverityOf()` reconoce el vocabulario nuevo y el histórico (`leve`/`moderada`/`nivel N`) para no des-colorear episodios antiguos | §2, §5 |
@@ -50,8 +57,8 @@ qué es una propuesta piloto pendiente de validación propia.
 | `wwwroot/app.css` | Nueva clase `.opt-grid-2` (grilla 2×2 para los 4 niveles) | — |
 | `README.md` | Actualizada la sección "Decisiones de mapeo" con el nuevo vocabulario | — |
 | `Services/AdaptiveCatalog.cs` (check-in diario) | **Sin cambio de código** — revisado y justificado por primera vez en v2 | §8.1 |
-| `DysregulationWizard.razor` (`Supports`, "formas de calmar") | Nota condicional agregada al elegir "Presión profunda / Chaleco" (evidencia débil/mixta) | §8.2 |
-| `DysregulationWizard.razor` (`Locations`, `Transitions`, `Triggers`) | **Sin cambio de código** — justificado bajo el marco de Evaluación Funcional de Conducta (FBA) | §8.3 |
+| `DysregulationWizard.razor` (`Supports`, "formas de calmar") | **(v5) Eliminado del formulario** junto con el resto de los pasos — la justificación de §8.2 (incluida la nota del chaleco) queda como referencia para si se reintroduce más adelante | §8.2 |
+| `DysregulationWizard.razor` (`Locations`, `Transitions`, `Triggers`) | **(v5) Eliminado del formulario** — la justificación FBA de §8.3 queda como referencia para si se reintroduce más adelante | §8.3 |
 | `SensoryWalletCard.razor` + `Models/BoardModels.cs` + `Services/BoardMapper.cs` (medidor) | **Sin justificación clínica para los cuartiles de color** (se mantienen por legibilidad). **(v4)** Se probó agregar la marca del `decision_threshold` real de la API + una nota, y se revirtió por decisión de diseño: el medidor vuelve a mostrar sólo el gráfico | §8.4 |
 
 ---
@@ -67,28 +74,55 @@ qué es una propuesta piloto pendiente de validación propia.
   migración `alembic/versions/0001_initial.py`).
 
 ### Qué cambió en el frontend
-Antes el Paso 1 mostraba 3 botones ("Leve 1-3", "Moderada 4-7", "Severa 8-10") con rangos
-numéricos **inventados**, sin ninguna fuente. Ahora muestra 4 botones simples con la escala
-ordinal Nivel 1-4 (ver tabla abajo) — mismo estilo de botón (`opt-chip`) que usa el resto del
-wizard, sin tarjetas ni descripciones adicionales.
+Antes era un asistente de 5 pasos (intensidad; lugar/transición; desencadenante; apoyo aplicado
+y efectividad; comentario final) con rangos numéricos **inventados** en el primer paso ("Leve
+1-3", "Moderada 4-7", "Severa 8-10"). **(v5)** Ahora es **una sola pantalla**:
 
-**(v4) Decisión de alcance:** en v2/v3 el Paso 1 llegó a incluir además duración aproximada,
-tiempo de recuperación y un checklist de conductas de riesgo (con auto-ajuste a Nivel 4), las 4
-dimensiones que usa el **Emotional Outburst Questionnaire** (EOQ — ver referencia [6] en §6).
-Se sacaron del formulario por decisión de producto: quedaba con demasiados campos para un
-registro que se espera breve. **El frontend hoy sólo envía el nivel de la escala** — nada de
-duración/recuperación/conductas viaja a la API. Si el equipo quisiera capturar esas dimensiones
-más adelante, el EOQ sigue siendo la referencia a usar, pero eso queda fuera del alcance actual.
+1. **Intensidad observada**: 4 botones — Leve / Moderada / Alta / Crisis · riesgo de seguridad
+   (ver tabla de la escala abajo). Mismo estilo `opt-chip` que el resto de la app.
+2. **Contexto en palabras**: un textarea abierto ("¿Qué ocurrió antes? ¿Qué estímulos o
+   situaciones pudieron afectar?"), sin categorías predefinidas.
+3. Cancelar / Guardar registro.
+
+Se sacaron por completo del formulario: la selección de lugar/transición previa, el
+desencadenante primario, el apoyo aplicado y la efectividad — todo lo que en v1-v4 alimentaba
+`type`, `strategy_applied` y `strategy_result` con valores elegidos por la familia. **(v4→v5)**
+También se sacaron duración, recuperación y el checklist de conductas de riesgo (dimensiones del
+**Emotional Outburst Questionnaire**, EOQ — referencia [6] en §6) que se habían probado en v2/v3.
+
+**Qué envía hoy el frontend a `POST /cases/{id}/dysregulations`:**
+
+| Campo del payload | Valor hoy | Antes (v1-v4) |
+| --- | --- | --- |
+| `intensity` | Uno de los 4 niveles justificados (elegido por la familia) | Igual, elegido por la familia |
+| `type` | Siempre `"Desregulación Emocional"` (constante) | Derivado del desencadenante elegido (`Sobrecarga Sensorial`, `Transición de Actividad`, `Alimentación`, …) |
+| `strategy_applied` | Siempre `"Acompañamiento sin apoyo específico"` (constante) | Elegido de una lista de apoyos (audífonos, chaleco, etc.) |
+| `strategy_result` | Siempre `"Regulación Parcial"` (constante) | Elegido con una carita (logró regularse / parcial / no funcionó) |
+| `suspected_trigger_text` | El texto libre de "Contexto en palabras", tal cual | Concatenación de lugar + transición + desencadenante + comentario |
+
+**Por qué esto le importa al backend:** `suspected_trigger_text` sigue pasando por
+`trigger_analyzer()` (`app/api/routes.py:190`), que extrae tags de texto libre con NLP — esa
+parte sigue funcionando igual. Pero `app/services/strategy.py` también usa `event.tipo_evento`
+para extraer tags (`_event_tags`, línea ~39): con `type` siempre igual a `"Desregulación
+Emocional"`, esa señal deja de variar entre episodios. Antes el desencadenante elegido por la
+familia aportaba una categoría explícita (auditiva, de rutina, alimentaria); ahora esa
+categorización depende **enteramente** de lo que la familia escriba en el texto libre y de que
+el NLP lo detecte. Vale la pena que el backend revise si esto degrada las recomendaciones de
+"Cuidado sugerido" con el tiempo.
 
 ### La escala Nivel 0-4 (propuesta compuesta — **no es un instrumento validado por sí solo**)
 
-| Nivel | Nombre | Criterio observable | Valor enviado a la API (`intensity`) |
+| Nivel | Botón en la UI | Criterio observable | Valor enviado a la API (`intensity`) |
 | --- | --- | --- | --- |
-| 0 | Regulado | Sin señales de desregulación | *(no aplica al registrar un episodio)* |
-| 1 | Activación leve | Reactividad y recuperación <5 min; se autorregula con apoyo mínimo | `Nivel 1 (Activación leve)` |
-| 2 | Desregulación moderada | Reactividad y recuperación 5–15 min; requiere co-regulación activa | `Nivel 2 (Desregulación moderada)` |
-| 3 | Desregulación alta | Reactividad y/o recuperación 15–60 min; pérdida funcional significativa de la rutina | `Nivel 3 (Desregulación alta)` |
-| 4 | Crisis / riesgo de seguridad | Duración o recuperación >60 min, o agresión física/autolesión | `Nivel 4 (Crisis / riesgo de seguridad)` |
+| 0 | *(no se ofrece en el formulario)* | Sin señales de desregulación | *(no aplica al registrar un episodio)* |
+| 1 | **Leve** (Activación leve) | Reactividad y recuperación <5 min; se autorregula con apoyo mínimo | `Nivel 1 (Activación leve)` |
+| 2 | **Moderada** (Desregulación moderada) | Reactividad y recuperación 5–15 min; requiere co-regulación activa | `Nivel 2 (Desregulación moderada)` |
+| 3 | **Alta** (Desregulación alta) | Reactividad y/o recuperación 15–60 min; pérdida funcional significativa de la rutina | `Nivel 3 (Desregulación alta)` |
+| 4 | **Crisis / riesgo de seguridad** | Duración o recuperación >60 min, o agresión física/autolesión | `Nivel 4 (Crisis / riesgo de seguridad)` |
+
+El botón muestra la etiqueta corta (Leve/Moderada/Alta); el valor que viaja a la API mantiene el
+nombre completo entre paréntesis, igual que antes, para no romper la compatibilidad con
+`BoardMapper.IntensityLabel`/`SeverityOf` ni con el filtro de `PredictionBoard.razor`.
 
 **Importante para el equipo:** esta tabla es una **combinación** informada por tres fuentes
 (EOQ para las dimensiones del episodio, EDI para el concepto de reactividad como continuo, y el
@@ -113,7 +147,7 @@ duración, recuperación ni conductas (eso se descartó en v4, ver arriba).
 > modelo de datos:
 >
 > - **Opción A — no tocar el esquema.** Dejar `intensity` como está (string libre). Sólo
->   actualizar el *keyword matching* de `strategy.py` (punto 3 más abajo) para que reconozca
+>   actualizar el *keyword matching* de `strategy.py` (punto 2 más abajo) para que reconozca
 >   `"nivel 3"` / `"nivel 4"` en vez de `"severa"` / `"moderada"`. Es el cambio más chico, pero
 >   cualquier filtro o reporte futuro por severidad sigue dependiendo de parsear el string.
 > - **Opción B — normalizar en el backend, sin tocar el frontend.** Agregar una columna
@@ -279,12 +313,16 @@ comité de ética.
   (25/50/75) sin respaldo clínico. Se probó mapear `decision_threshold` de la API y marcarlo
   sobre el arco (§8.4), pero se revirtió por decisión de diseño (mantener el medidor simple) —
   el `decision_threshold` calculado por la API sigue sin usarse en el frontend.
-- **(v2, implementado en v3)** "Presión profunda / Chaleco" en la lista de formas de calmar
-  tiene evidencia débil/mixta en la literatura ([17]) — se mantiene la nota condicional en el
-  wizard cuando se selecciona esa opción (§8.2), es lo único de v2/v3 que no se revirtió.
-- **(v4)** El wizard ya no recolecta duración, tiempo de recuperación ni conductas de riesgo del
-  episodio — sólo el nivel de la escala. Si el equipo quiere retomar esas dimensiones del EOQ
-  más adelante, conviene definir primero el contrato en el backend (ver aviso en §2).
+- **(v2, implementado en v3, revertido en v5)** "Presión profunda / Chaleco" en la lista de
+  formas de calmar tenía evidencia débil/mixta en la literatura ([17]) y una nota condicional en
+  el wizard — la lista completa de "apoyo usado" se eliminó del formulario en v5 (§8.2).
+- **(v4, revertido en v5)** El wizard había dejado de recolectar duración/recuperación/conductas
+  de riesgo (dimensiones del EOQ), pero seguía preguntando lugar/transición/desencadenante/apoyo/
+  efectividad. **v5 saca todo eso también**: hoy el formulario sólo pide nivel + contexto libre.
+  `type`, `strategy_applied` y `strategy_result` viajan a la API como constantes (ver tabla en
+  §2) — si el equipo quiere retomar cualquiera de estas dimensiones (EOQ, antecedentes FBA,
+  apoyo aplicado) más adelante, conviene definir primero el contrato en el backend (ver aviso en
+  §2), en vez de que el frontend vuelva a improvisar campos.
 
 ---
 
@@ -319,12 +357,14 @@ razonables y ahora quedan documentadas, y la de medicación queda explícitament
 | Espacio seguro / Calma | Corresponde a "Intervención basada en antecedentes" (Antecedent-Based Intervention), también clasificada como práctica basada en evidencia | [16] |
 | Presión profunda / Chaleco | **Evidencia débil/mixta.** La revisión específica sobre chalecos de presión en autismo concluyó que la evidencia disponible era insuficiente para sustentar su uso como intervención basada en evidencia | [17] |
 
-**Implementado (v3):** no se sacó el chaleco de presión (sigue siendo una estrategia usada en la
-práctica real y reportada por familias). Se agregó una nota condicional en
-`DysregulationWizard.razor`, Paso 4: al seleccionar "Presión profunda / Chaleco" aparece *"Evidencia
-limitada/mixta en la literatura (Stephenson & Carter, 2009): úsalo sólo si ya fue acordado con el
-equipo terapéutico"*, con la misma clase `wizard__notice` ya usada para el aviso de auto-ajuste
-de nivel (§2), sin agregar componentes ni CSS nuevos.
+**Implementado en v3, eliminado en v5.** Se llegó a agregar una nota condicional en
+`DysregulationWizard.razor`, Paso 4: al seleccionar "Presión profunda / Chaleco" aparecía
+*"Evidencia limitada/mixta en la literatura (Stephenson & Carter, 2009): úsalo sólo si ya fue
+acordado con el equipo terapéutico"*. En v5 el formulario se colapsó a una sola pantalla (sólo
+nivel + contexto libre) y **toda la selección de "apoyo usado" desapareció**, junto con esa nota.
+La tabla de justificación queda como referencia: si el equipo reintroduce en el futuro un campo
+de "apoyo aplicado" (aquí o en el registro de eventos, §3), esta evidencia sigue siendo válida
+— en particular, mantener la advertencia sobre el chaleco de presión.
 
 ### 8.3 Lugar, transición previa y desencadenante (`Locations`, `Transitions`, `Triggers`)
 
@@ -333,7 +373,7 @@ central de la Evaluación Funcional de Conducta (*Functional Behavior Assessment
 más establecido en la literatura de análisis conductual aplicado para registrar dónde, cuándo y
 qué precede a un episodio. "Lugar" y "transición previa" corresponden al concepto de *setting
 events* / antecedentes inmediatos; "desencadenante" corresponde al estímulo discriminativo. Este
-marco es exactamente lo que hace el wizard con sus 3 preguntas del Paso 2 y 3.
+marco es lo que hacían los Pasos 2 y 3 del wizard **hasta v4**.
 
 | Cita | Qué aporta |
 | --- | --- |
@@ -341,9 +381,14 @@ marco es exactamente lo que hace el wizard con sus 3 preguntas del Paso 2 y 3.
 | [19] | Artículo fundacional del análisis funcional como metodología para vincular antecedentes con la conducta problema |
 | [20] | Evidencia específica de que la previsibilidad de las transiciones se relaciona con la frecuencia de conducta problema — sustenta por qué "transición previa" es una pregunta relevante y no arbitraria |
 
-**Conclusión:** las categorías actuales (Escuela/Aula, Recreo, Furgón/Trayecto, Casa/Entrada,
-Terapia; Salida del colegio, Cambio de actividad, Llegada a casa, Sin cambio evidente) son
-consistentes con cómo la literatura de FBA agrupa antecedentes. No se requiere cambiarlas.
+**Implementado hasta v4, eliminado en v5.** Las categorías (Escuela/Aula, Recreo, Furgón/Trayecto,
+Casa/Entrada, Terapia; Salida del colegio, Cambio de actividad, Llegada a casa, Sin cambio
+evidente; y la lista de desencadenantes) eran consistentes con cómo la literatura de FBA agrupa
+antecedentes, y no había ninguna razón bibliográfica para sacarlas — se sacaron en v5 por
+decisión de producto (simplificar el formulario a una sola pantalla), no porque estuvieran mal
+justificadas. Si se quiere recuperar esa estructura más adelante, esta sección sigue siendo el
+respaldo. Mientras tanto, el "antecedente" del episodio sólo se captura como texto libre en
+"Contexto en palabras", analizado por `trigger_analyzer()` en el backend (ver §2).
 
 ### 8.4 Colores y cortes del medidor de riesgo (Billetera Sensorial)
 
@@ -402,10 +447,9 @@ ya actualizado).
 
 | Tiempo | Acción | Qué decir |
 | --- | --- | --- |
-| 0:00–0:10 | Abrir la Ficha del Consultante, pestaña **"Predicción (Nuevo)"** | "Esta es la Billetera Sensorial. Antes decía 'Confianza X%' como si fuera una certeza clínica; ahora aclara que es cobertura de datos del modelo, no un diagnóstico." — pasar el mouse sobre el estadístico para mostrar el tooltip nuevo |
-| 0:10–0:25 | Click en **"Ingresar desregulación +"** | "Registrar una crisis ya no usa una escala de 'Leve/Moderada/Severa' inventada. Ahora son 4 niveles con nombre justificado en literatura reciente (EOQ y EDI), uno de esos instrumentos ya validado con muestra chilena." |
-| 0:25–0:35 | Elegir, por ejemplo, **"Desregulación alta"** (Nivel 3) → **Siguiente** | Sin más campos en este paso — es intencional, se mantiene breve |
-| 0:35–0:55 | Avanzar rápido: Paso 2 (lugar/transición) → Paso 3 (desencadenante) → Paso 4 (apoyo, opcionalmente "Presión profunda / Chaleco" para mostrar la nota de evidencia limitada) | Sin detenerse en los primeros dos; en el 4 puede pausar 2 segundos si quiere mostrar la nota del chaleco |
-| 0:55–1:10 | Efectividad → **Guardar registro** | "El registro queda guardado en el historial con el nivel correcto" — mostrar que aparece en "Historial de desregulaciones" |
-| 1:10–1:20 | Abrir el panel flotante **"Mamá Bluba"** (esquina inferior) → "Ver más líneas de ayuda" | "Sacamos el Fono SENDA: es la línea de drogas y alcohol, no corresponde a este público. Quedaron las líneas que sí aplican." |
+| 0:00–0:15 | Abrir la Ficha del Consultante, pestaña **"Predicción (Nuevo)"** | "Esta es la Billetera Sensorial. Antes decía 'Confianza X%' como si fuera una certeza clínica; ahora aclara que es cobertura de datos del modelo, no un diagnóstico." — pasar el mouse sobre el estadístico para mostrar el tooltip nuevo |
+| 0:15–0:35 | Click en **"Ingresar desregulación +"** | "Registrar una crisis ya no usa una escala de 'Leve/Moderada/Severa' con rangos numéricos inventados. Los mismos 4 nombres ahora están justificados en literatura reciente sobre desregulación en autismo (EOQ y EDI), uno de esos instrumentos ya validado con muestra chilena — y el formulario se simplificó a una sola pantalla." |
+| 0:35–0:55 | Elegir, por ejemplo, **"Alta"**, escribir una frase corta en "Contexto en palabras" (ej. "Ruido fuerte en el recreo") | "Sólo pedimos el nivel y una descripción libre del contexto — nada de pasos ni campos de más" |
+| 0:55–1:05 | **Guardar registro** | "Queda guardado en el historial con el nivel correcto" — mostrar que aparece en "Historial de desregulaciones" |
+| 1:05–1:20 | Abrir el panel flotante **"Mamá Bluba"** (esquina inferior) → "Ver más líneas de ayuda" | "Sacamos el Fono SENDA: es la línea de drogas y alcohol, no corresponde a este público. Quedaron las líneas que sí aplican." |
 | 1:20–1:30 | Cierre | "Todo esto está documentado con las citas exactas y los cambios pendientes de backend en `docs/CAMBIO_ESCALA_DESREGULACION.md`, en la rama `dev`." |
