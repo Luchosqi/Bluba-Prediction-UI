@@ -22,30 +22,6 @@
                 }
             </div>
 
-            <label class="wizard__group-label" for="dysregulation-type">Tipo de evento</label>
-            <select id="dysregulation-type" @bind="eventType">
-                @foreach (var option in EventTypes)
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-
-            <label class="wizard__group-label" for="dysregulation-strategy">Estrategia aplicada</label>
-            <select id="dysregulation-strategy" @bind="strategyApplied">
-                @foreach (var option in StrategyOptions)
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-
-            <label class="wizard__group-label" for="dysregulation-result">Resultado observado</label>
-            <select id="dysregulation-result" @bind="strategyResult">
-                @foreach (var option in ResultOptions)
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-
             <label class="wizard__group-label" for="dysregulation-context">Contexto en palabras</label>
             <textarea id="dysregulation-context" class="wizard__textarea" @bind="note" @bind:event="oninput"
                       placeholder="¿Qué ocurrió antes? ¿Qué estímulos o situaciones pudieron afectar?"></textarea>
@@ -73,38 +49,10 @@
     [Inject] private BlubaApiClient Api { get; set; } = default!;
 
     private string level = "Nivel 2 (Desregulación moderada)";
-    private string eventType = "Desregulación emocional";
-    private string strategyApplied = "No informado";
-    private string strategyResult = "No informado";
     private string note = string.Empty;
     private string? error;
     private bool saving;
     private DysregulationCreate? pendingPayload;
-
-    private static readonly string[] EventTypes =
-    [
-        "Desregulación emocional",
-        "Crisis sensorial",
-        "Crisis conductual",
-        "Otro",
-    ];
-
-    private static readonly string[] StrategyOptions =
-    [
-        "No informado",
-        "Espacio tranquilo",
-        "Acompañamiento",
-        "Apoyo sensorial",
-        "Otra estrategia",
-    ];
-
-    private static readonly string[] ResultOptions =
-    [
-        "No informado",
-        "Regulación exitosa",
-        "Regulación parcial",
-        "Sin efecto",
-    ];
 
     /// <summary>
     /// Escala de niveles basada en literatura reciente sobre desregulación en autismo (EOQ, EDI).
@@ -127,10 +75,10 @@
 
         pendingPayload ??= new DysregulationCreate(
             OccurredAt: DateTime.UtcNow,
-            Type: eventType,
+            Type: "No informado",
             Intensity: level,
-            StrategyApplied: strategyApplied,
-            StrategyResult: strategyResult,
+            StrategyApplied: "No informado",
+            StrategyResult: "No informado",
             ReportedByType: "FAMILY",
             ClientEventId: Guid.NewGuid().ToString("n"),
             SuspectedTriggerText: string.IsNullOrWhiteSpace(note) ? null : note.Trim());

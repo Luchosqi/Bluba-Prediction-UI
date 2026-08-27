@@ -39,7 +39,7 @@ public sealed class BlubaApiClient(HttpClient http, ILogger<BlubaApiClient> logg
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            return Fail<bool>("/health", ex) ?? false;
+            return Fail<bool>("/health", ex);
         }
 
         LastHealth = health;

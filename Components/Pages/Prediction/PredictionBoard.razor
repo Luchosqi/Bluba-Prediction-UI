@@ -1,35 +1,6 @@
 @implements IDisposable
 
 <section class="board">
-    @if (!apiOnline)
-    {
-        <div class="demo-banner">
-            <span aria-hidden="true">⚠️</span>
-            <span>
-                @if (Api.LastHealth?.Database == "unavailable")
-                {
-                    <strong>Base de datos no disponible.</strong>
-                    <text>La API responde, pero no puede consultar la base de datos; las tarjetas muestran datos de ejemplo.</text>
-                }
-                else if (Api.LastHealth is not null)
-                {
-                    <strong>Contrato incompatible.</strong>
-                    <text>La API responde, pero frontend y API no comparten la versión esperada; se muestran datos de ejemplo.</text>
-                }
-                else
-                {
-                    <strong>Modo demostración.</strong>
-                    <text>No se pudo contactar la API en <code>@ApiBaseAddress</code>; se muestran datos de ejemplo.</text>
-                }
-                <span>Detalle: @offlineDetail</span>
-            </span>
-        </div>
-    }
-
-    @if (gaugeIsDemo)
-    {
-        <p class="state-note">El medidor está usando datos demo porque la predicción en vivo no está disponible.</p>
-    }
     @if (predictionPending)
     {
         <p class="state-note">El episodio se guardó. La nueva predicción está pendiente porque el modelo no está disponible.</p>
@@ -47,10 +18,6 @@
             <div class="card__head">
                 <div>
                     <h3 class="card__title">Cuidado sugerido</h3>
-                    @if (strategiesIsDemo)
-                    {
-                        <p class="state-note">Datos demo: el endpoint de estrategias no respondió.</p>
-                    }
                     <p class="card__subtitle">
                         Recomendaciones preventivas basadas en el estado del niño y eventos de las últimas 24 horas.
                     </p>
@@ -95,10 +62,6 @@
             <div class="card__head">
                 <div>
                     <h3 class="card__title">Historial de desregulaciones</h3>
-                    @if (episodesIsDemo)
-                    {
-                        <p class="state-note">Datos demo: el historial de episodios no respondió.</p>
-                    }
                     <p class="card__subtitle">
                         Registro de episodios informados y del contexto observado por la familia.
                     </p>
@@ -173,10 +136,6 @@
             <div class="card__head">
                 <div>
                     <h3 class="card__title">Historial de Cuidados Aplicados</h3>
-                    @if (careIsDemo)
-                    {
-                        <p class="state-note">Datos demo: el historial de cuidados no respondió.</p>
-                    }
                     <p class="card__subtitle">
                         Registro de intervenciones preventivas realizadas y la evaluación de su impacto en el niño.
                     </p>
@@ -299,16 +258,9 @@
 
     private AdaptiveQuestion? adaptiveQuestion;
 
-    private bool apiOnline = true;
-    private string? offlineDetail;
-    private bool gaugeIsDemo = true;
     private bool strategiesIsDemo = true;
-    private bool episodesIsDemo = true;
-    private bool careIsDemo = true;
     private bool predictionPending;
     private bool modelUnavailable;
-
-    private string ApiBaseAddress => Configuration["BlubaApi:BaseAddress"] ?? "(sin configurar)";
 
     private string ApplicationTimeZoneId => Api.LastHealth?.Timezone
         ?? Configuration["BlubaApi:TimeZone"]
@@ -348,8 +300,7 @@
 
     private async Task LoadAllAsync()
     {
-        apiOnline = await Api.IsOnlineAsync(cts.Token);
-        offlineDetail = apiOnline ? null : Api.LastError;
+        var apiOnline = await Api.IsOnlineAsync(cts.Token);
         modelUnavailable = apiOnline && string.Equals(Api.LastHealth?.Model, "missing", StringComparison.OrdinalIgnoreCase);
 
         await Task.WhenAll(
@@ -391,13 +342,11 @@
             if (latestPrediction is null)
             {
                 gauge = DemoData.Gauge;
-                gaugeIsDemo = true;
             }
             return;
         }
 
         latestPrediction = prediction;
-        gaugeIsDemo = false;
         var change = await Api.GetChangeExplanationAsync(CaseId, cts.Token);
         gauge = BoardMapper.ToGauge(prediction, change);
     }
@@ -428,11 +377,9 @@
         {
             episodes = [.. DemoData.Episodes()];
             episodeTotal = episodes.Count;
-            episodesIsDemo = true;
             return;
         }
 
-        episodesIsDemo = false;
         episodes = [.. BoardMapper.ToEpisodes(history, ApplicationTimeZoneId)];
         episodeTotal = history.Total;
     }
@@ -441,7 +388,6 @@
     {
         var (from, to) = carePeriod.Range(ApplicationDate);
         var interventions = await Api.GetInterventionsAsync(CaseId, from, to, cts.Token);
-        careIsDemo = interventions is null;
         allCare = interventions is null ? [.. DemoData.Care()] : [.. BoardMapper.ToCare(interventions, ApplicationTimeZoneId)];
         carePage = 1;
     }
