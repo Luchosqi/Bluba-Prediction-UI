@@ -56,7 +56,7 @@ qué es una propuesta piloto pendiente de validación propia.
 
 | Archivo | Cambio | Por qué |
 | --- | --- | --- |
-| `Components/Pages/Prediction/DysregulationWizard.razor` | **(v5)** Ya no es un wizard de varios pasos: una sola pantalla con la escala **Leve/Moderada/Alta/Crisis · riesgo de seguridad** (botones) + un textarea de contexto libre. Escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" con rangos inventados → nombres justificados por literatura. **(v6)** Título del diálogo "Registrar desregulación" → **"Contar qué pasó"** | §2, §8.5 |
+| `Components/Pages/Prediction/DysregulationWizard.razor` | Una sola pantalla con nivel, tipo de evento, estrategia aplicada, resultado y contexto. Usa "No informado" cuando la familia no conoce estrategia o resultado; conserva el mismo `client_event_id` al reintentar. | §2, §8.5 |
 | `Components/Pages/Prediction/InterventionWizard.razor` | Nota de trazabilidad: mismo criterio de resultado (regulación exitosa/parcial/sin efecto) que el registro de desregulaciones | §3 |
 | `Components/Pages/Prediction/PredictionBoard.razor` | Filtro "Tipo" del historial de desregulaciones actualizado a Nivel 1-4. **(v6)** Botón "Ingresar desregulación +" → **"Registrar momento +"** | §2, §8.5 |
 | `Services/BoardMapper.cs` | `SeverityOf()` reconoce el vocabulario nuevo y el histórico (`leve`/`moderada`/`nivel N`) para no des-colorear episodios antiguos | §2, §5 |
@@ -65,7 +65,7 @@ qué es una propuesta piloto pendiente de validación propia.
 | `Components/Pages/Prediction/SensoryWalletCard.razor` | Tooltip de "Confianza" con la misma aclaración (se mantiene, es opt-in) | §4 |
 | `Components/Shared/MamaBlubaHelper.razor` | Se eliminó la línea **Fono SENDA (1412)** de los números de apoyo | §5 |
 | `README.md` | Actualizada la sección "Decisiones de mapeo" con el nuevo vocabulario | — |
-| `Services/AdaptiveCatalog.cs` (check-in diario) | **Sin cambio de código** — revisado y justificado por primera vez en v2 | §8.1 |
+| API `GET /cases/{id}/adaptive-question` | El catálogo de opciones vive en el API y se reutiliza para validar el POST; la UI renderiza `options` sin duplicar códigos. | §8.1 |
 | `DysregulationWizard.razor` (`Supports`, "formas de calmar") | **(v5) Eliminado del formulario** junto con el resto de los pasos — la justificación de §8.2 (incluida la nota del chaleco) queda como referencia para si se reintroduce más adelante | §8.2 |
 | `DysregulationWizard.razor` (`Locations`, `Transitions`, `Triggers`) | **(v5) Eliminado del formulario** — la justificación FBA de §8.3 queda como referencia para si se reintroduce más adelante | §8.3 |
 | `SensoryWalletCard.razor` + `Models/BoardModels.cs` + `Services/BoardMapper.cs` (medidor) | **Sin justificación clínica para los cuartiles de color** (se mantienen por legibilidad). **(v4)** Se probó agregar la marca del `decision_threshold` real de la API + una nota, y se revirtió por decisión de diseño: el medidor vuelve a mostrar sólo el gráfico | §8.4 |
@@ -329,13 +329,9 @@ comité de ética.
 - **(v2, implementado en v3, revertido en v5)** "Presión profunda / Chaleco" en la lista de
   formas de calmar tenía evidencia débil/mixta en la literatura ([17]) y una nota condicional en
   el wizard — la lista completa de "apoyo usado" se eliminó del formulario en v5 (§8.2).
-- **(v4, revertido en v5)** El wizard había dejado de recolectar duración/recuperación/conductas
-  de riesgo (dimensiones del EOQ), pero seguía preguntando lugar/transición/desencadenante/apoyo/
-  efectividad. **v5 saca todo eso también**: hoy el formulario sólo pide nivel + contexto libre.
-  `type`, `strategy_applied` y `strategy_result` viajan a la API como constantes (ver tabla en
-  §2) — si el equipo quiere retomar cualquiera de estas dimensiones (EOQ, antecedentes FBA,
-  apoyo aplicado) más adelante, conviene definir primero el contrato en el backend (ver aviso en
-  §2), en vez de que el frontend vuelva a improvisar campos.
+- **Actualización del formulario:** además del nivel y contexto, la UI permite seleccionar tipo de
+  evento, estrategia aplicada y resultado. Cuando no existe información se envía explícitamente
+  `No informado`; ya no se registra automáticamente una regulación parcial.
 
 ---
 
@@ -347,7 +343,7 @@ tienen respaldo bibliográfico razonable y no requieren cambio de código, mient
 (el medidor) **no tiene** un corte clínico que lo justifique y sí requiere una decisión del
 equipo.
 
-### 8.1 Check-in diario (`Services/AdaptiveCatalog.cs`)
+### 8.1 Check-in diario (catálogo del API)
 
 | Pregunta | Opciones actuales | Justificación | Cita |
 | --- | --- | --- | --- |
@@ -357,8 +353,9 @@ equipo.
 | Estado gastrointestinal | Normal / Estreñimiento / Diarrea | Los síntomas gastrointestinales se asocian consistentemente con mayor ansiedad, irritabilidad y sobre-respuesta sensorial en niños autistas | [12], [13] |
 | Adherencia a la medicación | Adherente / Parcial / No aplica | **No es una escala clínica**, es seguimiento operacional estándar de adherencia terapéutica (igual que "resultado de intervención" en §3). No se buscó ni se necesita una escala psicométrica para esto — sólo se deja explícito para que no se confunda con las demás preguntas | — |
 
-**Conclusión:** no se requiere cambiar texto ni opciones; las 4 primeras preguntas ya eran
-razonables y ahora quedan documentadas, y la de medicación queda explícitamente marcada como
+**Conclusión:** las opciones válidas se mantienen en el API y ahora se devuelven en
+`GET /cases/{id}/adaptive-question`; así el cálculo de rango y la UI usan el mismo catálogo. Las
+4 primeras preguntas ya eran razonables y ahora quedan documentadas, y la de medicación queda explícitamente marcada como
 "seguimiento operacional, no escala clínica" (mismo criterio aplicado a "Confianza" en §4).
 
 ### 8.2 Formas de calmar (lista `Supports` del wizard de desregulación)

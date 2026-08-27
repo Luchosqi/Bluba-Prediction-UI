@@ -94,12 +94,12 @@ public static class BoardMapper
         return "sparkles";
     }
 
-    public static IReadOnlyList<EpisodeRow> ToEpisodes(DysregulationHistory history) =>
+    public static IReadOnlyList<EpisodeRow> ToEpisodes(DysregulationHistory history, string? timeZoneId = null) =>
         history.Items.Select(item => new EpisodeRow(
             Id: item.EventId,
-            When: FormatWhen(item.OccurredAt),
+            When: FormatWhen(item.OccurredAt, timeZoneId),
             Intensity: IntensityLabel(item.Intensity),
-            Severity: SeverityOf(item.Intensity),
+            Severity: SeverityOf(item.Intensity, item.SeverityLevel),
             Context: ContextOf(item))).ToList();
 
     private static string ContextOf(DysregulationHistoryItem item)
@@ -111,9 +111,9 @@ public static class BoardMapper
         return item.Type;
     }
 
-    public static IReadOnlyList<CareRow> ToCare(IEnumerable<Intervention> interventions) =>
+    public static IReadOnlyList<CareRow> ToCare(IEnumerable<Intervention> interventions, string? timeZoneId = null) =>
         interventions.Select(item => new CareRow(
-            When: FormatWhen(item.OccurredAt),
+            When: FormatWhen(item.OccurredAt, timeZoneId),
             Title: item.InterventionType,
             Detail: item.Description,
             Result: OutcomeLabel(item.Outcome),
@@ -148,8 +148,11 @@ public static class BoardMapper
     /// sintéticos e importados) como la escala nueva "Nivel 0-4" (ver docs/CAMBIO_ESCALA_DESREGULACION.md),
     /// para que los episodios antiguos no queden mal coloreados en el historial.
     /// </summary>
-    public static Severity SeverityOf(string apiIntensity)
+    public static Severity SeverityOf(string apiIntensity, int? severityLevel = null)
     {
+        if (severityLevel is >= 0 and <= 1) return Severity.Low;
+        if (severityLevel == 2) return Severity.Medium;
+        if (severityLevel is 3 or 4) return Severity.High;
         var text = apiIntensity.ToLowerInvariant();
         if (text.StartsWith("leve") || text.StartsWith("nivel 0") || text.StartsWith("nivel 1")) return Severity.Low;
         if (text.StartsWith("moderada") || text.StartsWith("nivel 2")) return Severity.Medium;
@@ -157,22 +160,70 @@ public static class BoardMapper
     }
 
     /// <summary>
-    /// La API escribe sus marcas de tiempo con _naive_utc, es decir UTC sin sufijo de zona,
-    /// así que System.Text.Json las entrega como Unspecified. Se interpretan como UTC y se
-    /// convierten a hora local; mostrarlas crudas las corría por el desfase horario.
+    /// La API devuelve timestamps en UTC con zona explícita; se convierten a hora local para
+    /// que la pantalla respete "Hoy" y "Ayer".
     /// </summary>
-    public static string FormatWhen(DateTime value)
+    public static string FormatWhen(DateTime value, string? timeZoneId = null)
     {
-        var local = value.Kind switch
+        var zone = ResolveTimeZone(timeZoneId);
+        var utc = value.Kind switch
         {
-            DateTimeKind.Local => value,
-            DateTimeKind.Utc => value.ToLocalTime(),
-            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime(),
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
         };
-        var today = DateTime.Now.Date;
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, zone);
+        var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone).Date;
         if (local.Date == today) return $"Hoy · {local:HH:mm} h";
         if (local.Date == today.AddDays(-1)) return $"Ayer · {local:HH:mm} h";
         return $"{local.ToString("dd MMM", Es)} · {local:HH:mm} h";
+    }
+
+    public static TimeZoneInfo ResolveTimeZone(string? timeZoneId)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId ?? "America/Santiago");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            var requested = timeZoneId ?? "America/Santiago";
+            if (TimeZoneInfo.TryConvertIanaIdToWindowsId(requested, out var windowsId) && windowsId is not null)
+            {
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(windowsId);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    // Fall through to the portable UTC fallback.
+                }
+                catch (InvalidTimeZoneException)
+                {
+                    // Fall through to the portable UTC fallback.
+                }
+            }
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(requested, null, out var ianaId) && ianaId is not null)
+            {
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(ianaId);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    // Fall through to the portable UTC fallback.
+                }
+                catch (InvalidTimeZoneException)
+                {
+                    // Fall through to the portable UTC fallback.
+                }
+            }
+            return TimeZoneInfo.Utc;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.Utc;
+        }
     }
 
     private static string Shorten(string value, int max) =>

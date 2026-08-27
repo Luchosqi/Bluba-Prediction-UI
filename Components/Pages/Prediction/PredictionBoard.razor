@@ -6,11 +6,37 @@
         <div class="demo-banner">
             <span aria-hidden="true">⚠️</span>
             <span>
-                <strong>Modo demostración.</strong>
-                No se pudo contactar la API en <code>@ApiBaseAddress</code>, así que se muestran datos de
-                ejemplo. Detalle: @offlineDetail
+                @if (Api.LastHealth?.Database == "unavailable")
+                {
+                    <strong>Base de datos no disponible.</strong>
+                    <text>La API responde, pero no puede consultar la base de datos; las tarjetas muestran datos de ejemplo.</text>
+                }
+                else if (Api.LastHealth is not null)
+                {
+                    <strong>Contrato incompatible.</strong>
+                    <text>La API responde, pero frontend y API no comparten la versión esperada; se muestran datos de ejemplo.</text>
+                }
+                else
+                {
+                    <strong>Modo demostración.</strong>
+                    <text>No se pudo contactar la API en <code>@ApiBaseAddress</code>; se muestran datos de ejemplo.</text>
+                }
+                <span>Detalle: @offlineDetail</span>
             </span>
         </div>
+    }
+
+    @if (gaugeIsDemo)
+    {
+        <p class="state-note">El medidor está usando datos demo porque la predicción en vivo no está disponible.</p>
+    }
+    @if (predictionPending)
+    {
+        <p class="state-note">El episodio se guardó. La nueva predicción está pendiente porque el modelo no está disponible.</p>
+    }
+    @if (modelUnavailable && !predictionPending)
+    {
+        <p class="state-note">La API y la base de datos están disponibles, pero falta el modelo; las predicciones quedan pendientes.</p>
     }
 
     <div class="board__row board__row--3-5">
@@ -21,6 +47,10 @@
             <div class="card__head">
                 <div>
                     <h3 class="card__title">Cuidado sugerido</h3>
+                    @if (strategiesIsDemo)
+                    {
+                        <p class="state-note">Datos demo: el endpoint de estrategias no respondió.</p>
+                    }
                     <p class="card__subtitle">
                         Recomendaciones preventivas basadas en el estado del niño y eventos de las últimas 24 horas.
                     </p>
@@ -44,9 +74,16 @@
                         </button>
                     </div>
                 }
-                @for (var i = suggestions.Count; i < 3; i++)
+                @if (strategiesIsDemo)
                 {
-                    <div class="slot-empty">Espacio disponible para nueva recomendación</div>
+                    @for (var i = suggestions.Count; i < 3; i++)
+                    {
+                        <div class="slot-empty">Espacio disponible para nueva recomendación</div>
+                    }
+                }
+                else if (suggestions.Count == 0)
+                {
+                    <p class="state-note">La API respondió correctamente y no hay recomendaciones activas.</p>
                 }
             </div>
         </article>
@@ -58,6 +95,10 @@
             <div class="card__head">
                 <div>
                     <h3 class="card__title">Historial de desregulaciones</h3>
+                    @if (episodesIsDemo)
+                    {
+                        <p class="state-note">Datos demo: el historial de episodios no respondió.</p>
+                    }
                     <p class="card__subtitle">
                         Registro de episodios informados y del contexto observado por la familia.
                     </p>
@@ -132,6 +173,10 @@
             <div class="card__head">
                 <div>
                     <h3 class="card__title">Historial de Cuidados Aplicados</h3>
+                    @if (careIsDemo)
+                    {
+                        <p class="state-note">Datos demo: el historial de cuidados no respondió.</p>
+                    }
                     <p class="card__subtitle">
                         Registro de intervenciones preventivas realizadas y la evaluación de su impacto en el niño.
                     </p>
@@ -207,6 +252,7 @@
 @if (showInterventionWizard)
 {
     <InterventionWizard CaseId="@CaseId" Suggestions="suggestions"
+                        PredictionId="@latestPrediction?.PredictionId"
                         OnCancel="() => showInterventionWizard = false"
                         OnSaved="OnInterventionSavedAsync" />
 }
@@ -233,6 +279,7 @@
     private readonly CancellationTokenSource cts = new();
 
     private RiskGauge gauge = DemoData.Gauge;
+    private RiskPrediction? latestPrediction;
     private List<SuggestionCard> suggestions = [.. DemoData.Suggestions()];
     private List<EpisodeRow> episodes = [.. DemoData.Episodes()];
     private List<CareRow> allCare = [.. DemoData.Care()];
@@ -254,8 +301,27 @@
 
     private bool apiOnline = true;
     private string? offlineDetail;
+    private bool gaugeIsDemo = true;
+    private bool strategiesIsDemo = true;
+    private bool episodesIsDemo = true;
+    private bool careIsDemo = true;
+    private bool predictionPending;
+    private bool modelUnavailable;
 
     private string ApiBaseAddress => Configuration["BlubaApi:BaseAddress"] ?? "(sin configurar)";
+
+    private string ApplicationTimeZoneId => Api.LastHealth?.Timezone
+        ?? Configuration["BlubaApi:TimeZone"]
+        ?? "America/Santiago";
+
+    private DateOnly ApplicationDate
+    {
+        get
+        {
+            var zone = BoardMapper.ResolveTimeZone(ApplicationTimeZoneId);
+            return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).DateTime);
+        }
+    }
 
     private int EpisodePageCount => Math.Max(1, (int)Math.Ceiling(episodeTotal / (double)EpisodePageSize));
 
@@ -284,6 +350,7 @@
     {
         apiOnline = await Api.IsOnlineAsync(cts.Token);
         offlineDetail = apiOnline ? null : Api.LastError;
+        modelUnavailable = apiOnline && string.Equals(Api.LastHealth?.Model, "missing", StringComparison.OrdinalIgnoreCase);
 
         await Task.WhenAll(
             LoadGaugeAsync(),
@@ -321,26 +388,33 @@
         var prediction = await Api.GetLatestPredictionAsync(CaseId, cts.Token);
         if (prediction is null)
         {
-            gauge = DemoData.Gauge;
+            if (latestPrediction is null)
+            {
+                gauge = DemoData.Gauge;
+                gaugeIsDemo = true;
+            }
             return;
         }
 
+        latestPrediction = prediction;
+        gaugeIsDemo = false;
         var change = await Api.GetChangeExplanationAsync(CaseId, cts.Token);
         gauge = BoardMapper.ToGauge(prediction, change);
     }
 
     private async Task ReloadSuggestionsAsync()
     {
-        var cutoff = DateOnly.FromDateTime(DateTime.Today);
+        var cutoff = ApplicationDate;
         var strategies = await Api.GetStrategiesAsync(CaseId, cutoff, cts.Token);
-        suggestions = strategies is { Items.Count: > 0 }
-            ? [.. BoardMapper.ToSuggestions(strategies)]
-            : [.. DemoData.Suggestions()];
+        strategiesIsDemo = strategies is null;
+        suggestions = strategies is null
+            ? [.. DemoData.Suggestions()]
+            : [.. BoardMapper.ToSuggestions(strategies)];
     }
 
     private async Task LoadEpisodesAsync()
     {
-        var (from, to) = episodePeriod.Range(DateOnly.FromDateTime(DateTime.Today));
+        var (from, to) = episodePeriod.Range(ApplicationDate);
         var history = await Api.GetDysregulationsAsync(
             CaseId,
             limit: EpisodePageSize,
@@ -354,18 +428,21 @@
         {
             episodes = [.. DemoData.Episodes()];
             episodeTotal = episodes.Count;
+            episodesIsDemo = true;
             return;
         }
 
-        episodes = [.. BoardMapper.ToEpisodes(history)];
+        episodesIsDemo = false;
+        episodes = [.. BoardMapper.ToEpisodes(history, ApplicationTimeZoneId)];
         episodeTotal = history.Total;
     }
 
     private async Task LoadCareAsync()
     {
-        var (from, to) = carePeriod.Range(DateOnly.FromDateTime(DateTime.Today));
+        var (from, to) = carePeriod.Range(ApplicationDate);
         var interventions = await Api.GetInterventionsAsync(CaseId, from, to, cts.Token);
-        allCare = interventions is null ? [.. DemoData.Care()] : [.. BoardMapper.ToCare(interventions)];
+        careIsDemo = interventions is null;
+        allCare = interventions is null ? [.. DemoData.Care()] : [.. BoardMapper.ToCare(interventions, ApplicationTimeZoneId)];
         carePage = 1;
     }
 
@@ -418,6 +495,13 @@
     {
         showDysregulationWizard = false;
         episodePage = 1;
+        var cutoff = ApplicationDate;
+        var prediction = await Api.PredictAsync(CaseId, cutoff, cts.Token);
+        predictionPending = prediction is null;
+        if (prediction is not null)
+        {
+            latestPrediction = prediction;
+        }
         await Task.WhenAll(
             LoadEpisodesAsync(), LoadGaugeAsync(), ReloadSuggestionsAsync(), LoadAdaptiveQuestionAsync());
     }

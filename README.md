@@ -15,7 +15,7 @@ Abrir <http://localhost:5163>.
 La dirección de la API se configura en `appsettings.json`:
 
 ```json
-"BlubaApi": { "BaseAddress": "http://localhost:8000", "TimeoutSeconds": 10 }
+"BlubaApi": { "BaseAddress": "http://localhost:8000", "TimeoutSeconds": 10, "TimeZone": "America/Santiago" }
 ```
 
 Las llamadas salen desde el servidor, no desde el navegador, así que **no se requiere CORS**
@@ -84,12 +84,11 @@ respaldo y el resto sigue con datos reales.
   leve)` … `Nivel 4 (Crisis / riesgo de seguridad)`, una escala ordinal 0-4 basada en EOQ/EDI
   (ver `docs/CAMBIO_ESCALA_DESREGULACION.md`) que reemplaza la escala previa
   `Leve/Moderada/Severa (1-10)`, sin respaldo bibliográfico. `BoardMapper.SeverityOf` reconoce
-  ambos formatos para no romper el coloreado de episodios históricos, pero el filtro por tipo
-  del historial sólo hace *match* exacto contra el vocabulario nuevo: los episodios antiguos
-  no aparecerán al filtrar por nivel hasta que el backend normalice el campo (ver el .md).
-- **Las marcas de tiempo de la API se interpretan como UTC.** La API las escribe con
-  `_naive_utc()` y las devuelve sin sufijo de zona, así que el frontend las convierte a hora
-  local antes de mostrarlas. Ver la advertencia de abajo.
+  ambos formatos para no romper el coloreado de episodios históricos; el API también expone
+  `severity_level` normalizado y acepta el filtro por nivel para datos nuevos e históricos.
+- **Las marcas de tiempo usan UTC en el contrato.** El API almacena UTC, devuelve `Z` y
+  aplica los filtros de fecha en `America/Santiago` (configurable). El cliente convierte el
+  timestamp a la zona de la pantalla antes de mostrarlo.
 - **`comparison_supported` se respeta.** Cuando la API declara que la comparación no aplica
   rellena igual `risk_change` con delta 0; mostrar ese 0 se leería como "sin cambios desde
   ayer". En ese caso «Vs. ayer» muestra `—` y el diálogo explica el motivo.
@@ -97,7 +96,13 @@ respaldo y el resto sigue con datos reales.
   falta, así que el diálogo vuelve a pedir `adaptive-question` y sigue hasta que
   `needs_more_information` es `false`. Ver la nota sobre la confianza más abajo.
 - **El resultado de una intervención va en dos llamadas** porque la API lo modela como
-  inmutable: primero `POST` y luego `PATCH …/outcome`.
+  inmutable: primero `POST` y luego `PATCH …/outcome`; los identificadores se conservan
+  para reintentar sólo la operación que falló.
+- **El ciclo de episodio recalcula el riesgo.** Tras crear una desregulación, la UI llama a
+  `POST /cases/{id}/predict` con el día local y recarga medidor, estrategias, historial y
+  pregunta adaptativa. Si falta el modelo, el episodio permanece guardado y se informa como
+  predicción pendiente.
+- **Contrato común:** la UI exige `contract_version = 0.3.0`, igual que `openapi.yaml` del API.
 - **Nombre del consultante.** La API entrega casos anonimizados (`PAC-001`), así que
   «Amelia Soto Neira» se mantiene como etiqueta de la maqueta y los datos clínicos reales
   (rango de edad, perfil sensorial) vienen de `GET /cases`.
@@ -114,29 +119,23 @@ Components/Pages/Ficha   Página con barra lateral, cabecera y pestañas
 Components/Pages/Prediction/
   PredictionBoard        Orquesta las cuatro tarjetas y sus filtros
   SensoryWalletCard      Medidor SVG + Comparativa diaria
-  DysregulationWizard    Asistente de 5 pasos
+  DysregulationWizard    Registro de episodio + reintento idempotente
   InterventionWizard     Asistente de 2 pasos
 ```
 
-## Advertencia: zonas horarias inconsistentes en el backend
+## Política de zonas horarias
 
-La columna `fecha_hora` mezcla dos convenciones y ninguna lleva sufijo de zona:
+La columna `fecha_hora` se almacena como UTC sin zona en PostgreSQL por compatibilidad, pero el
+contrato HTTP devuelve timestamps conscientes de zona:
 
 | Origen | Ejemplo almacenado | Convención |
 | --- | --- | --- |
-| `python -m app.cli import-data` (CSV) | `2026-07-03T16:30` | hora de pared local, sin convertir |
-| `POST /cases/{id}/dysregulations` | `2026-08-26T13:55` | UTC, vía `_naive_utc()` |
+| `python -m app.cli import-data` (CSV) | `2026-07-03 16:30` | se interpreta como hora Chile y se convierte a UTC |
+| `POST /cases/{id}/dysregulations` | `2026-08-26T13:55-04:00` | se convierte a UTC |
 
-Ningún cliente puede mostrar ambas correctamente. Este frontend asume **UTC**, que es la
-intención declarada de la API: los registros creados desde la app se ven a la hora correcta y
-las 7 filas importadas del CSV aparecen corridas por el desfase horario (−4 h en Chile).
-
-Para invertir el criterio (CSV correcto, registros nuevos corridos), en
-`Services/BoardMapper.FormatWhen` basta con devolver `value` tal cual en el caso
-`DateTimeKind.Unspecified`.
-
-La solución de fondo es del backend: importar el CSV convirtiendo a UTC, o exponer
-`datetime` con zona horaria en las respuestas.
+El frontend muestra ambas fuentes en hora local y calcula "Hoy"/"Ayer" con la zona anunciada
+por `/health`. Los rangos de fecha se envían como fechas de calendario, no como intervalos UTC
+construidos por el cliente.
 
 ## Nota: la confianza baja con la primera respuesta
 

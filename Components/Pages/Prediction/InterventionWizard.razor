@@ -72,7 +72,7 @@
         </div>
 
         <div class="wizard__foot">
-            <button type="button" class="btn-back" disabled="@saving"
+            <button type="button" class="btn-back" disabled="@(saving || createdIntervention is not null)"
                     @onclick="@(() => { if (step == 1) OnCancel.InvokeAsync(); else step = 1; })">
                 @(step == 1 ? "Cancelar" : "Atrás")
             </button>
@@ -84,8 +84,16 @@
             }
             else
             {
-                <button type="button" class="btn-save" disabled="@(impact is null || saving)"
-                        @onclick="SaveAsync">@(saving ? "Guardando…" : "Guardar registro")</button>
+                @if (createdIntervention is null)
+                {
+                    <button type="button" class="btn-save" disabled="@(impact is null || saving)"
+                            @onclick="SaveAsync">@(saving ? "Guardando…" : "Guardar registro")</button>
+                }
+                else
+                {
+                    <button type="button" class="btn-save" disabled="@(impact is null || saving)"
+                            @onclick="SaveOutcomeAsync">@(saving ? "Guardando…" : "Guardar resultado")</button>
+                }
             }
         </div>
     </div>
@@ -94,6 +102,7 @@
 @code {
     [Parameter, EditorRequired] public string CaseId { get; set; } = default!;
     [Parameter, EditorRequired] public IReadOnlyList<SuggestionCard> Suggestions { get; set; } = [];
+    [Parameter] public int? PredictionId { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
 
     /// <summary>Se invoca con el id de la sugerencia consumida tras guardar correctamente.</summary>
@@ -106,6 +115,9 @@
     private string? impact;
     private string? error;
     private bool saving;
+    private InterventionCreate? pendingCreate;
+    private Intervention? createdIntervention;
+    private InterventionOutcomeUpdate? pendingOutcome;
 
     /// <summary>intervention_type está limitado a 100 caracteres por el contrato de la API.</summary>
     private static string Truncate(string value, int max) =>
@@ -128,13 +140,18 @@
         saving = true;
         error = null;
 
-        var occurredAt = DateTime.UtcNow;
-        var created = await Api.CreateInterventionAsync(CaseId, new InterventionCreate(
-            OccurredAt: occurredAt,
+        pendingCreate ??= new InterventionCreate(
+            OccurredAt: DateTime.UtcNow,
             InterventionType: Truncate(suggestion.FullStrategy, 100),
             Description: suggestion.Detail,
             Adherence: "APPLIED",
-            ClientInterventionId: Guid.NewGuid().ToString("n")));
+            ClientInterventionId: Guid.NewGuid().ToString("n"),
+            PredictionId: PredictionId);
+
+        var createPayload = pendingCreate;
+        if (createPayload is null) return;
+
+        var created = await Api.CreateInterventionAsync(CaseId, createPayload);
 
         if (created is null)
         {
@@ -143,11 +160,23 @@
             return;
         }
 
-        // El resultado va en una segunda llamada porque la API lo modela como inmutable.
-        var updated = await Api.UpdateInterventionOutcomeAsync(CaseId, created.Id, new InterventionOutcomeUpdate(
-            OutcomeObservedAt: occurredAt,
-            Outcome: impact));
+        createdIntervention = created;
+        pendingOutcome ??= new InterventionOutcomeUpdate(
+            OutcomeObservedAt: createPayload.OccurredAt,
+            Outcome: impact);
+        saving = false;
+    }
 
+    private async Task SaveOutcomeAsync()
+    {
+        if (createdIntervention is null || pendingOutcome is null) return;
+
+        saving = true;
+        error = null;
+        var updated = await Api.UpdateInterventionOutcomeAsync(
+            CaseId,
+            createdIntervention.Id,
+            pendingOutcome);
         saving = false;
 
         if (updated is null)
@@ -156,6 +185,6 @@
             return;
         }
 
-        await OnSaved.InvokeAsync(selectedId);
+        await OnSaved.InvokeAsync(selectedId!);
     }
 }

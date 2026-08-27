@@ -68,7 +68,7 @@
             <span class="missing-data__dot" aria-hidden="true"></span>
             <span class="missing-data__text">
                 <b>Faltan datos</b>
-                <span>@(AdaptiveCatalog.For(Question.Feature)?.Title ?? Question.Feature)</span>
+                <span>@FeatureLabel(Question.Feature)</span>
             </span>
             <span class="missing-data__cta">Responder →</span>
         </button>
@@ -125,6 +125,16 @@
 
     private bool showConfidence;
     private bool showTrend;
+
+    private static string FeatureLabel(string? feature) => feature switch
+    {
+        "sleep_quality" => "Calidad del sueño",
+        "wake_state" => "Estado al despertar",
+        "regulation" => "Regulación durante el día",
+        "gastrointestinal" => "Estado gastrointestinal",
+        "medication_adherence" => "Adherencia a la medicación",
+        _ => feature ?? "Dato pendiente",
+    };
 
     // El arco cubre 180°: valor 0 apunta a la izquierda, valor 100 a la derecha.
     private const double CenterX = 131, CenterY = 125, NeedleLength = 62;

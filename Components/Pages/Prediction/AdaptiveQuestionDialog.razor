@@ -12,7 +12,7 @@
 
         @if (current is { NeedsMoreInformation: true })
         {
-            var catalog = AdaptiveCatalog.For(current.Feature);
+            var options = current.Options ?? [];
 
             <p class="adaptive__question">@current.Question</p>
             @if (current.Reason is { Length: > 0 } reason)
@@ -20,13 +20,13 @@
                 <p class="adaptive__reason">@reason</p>
             }
 
-            @if (catalog is { } entry)
+            @if (options.Count > 0)
             {
                 <div class="adaptive__options">
-                    @foreach (var (code, label) in entry.Options)
+                    @foreach (var option in options)
                     {
-                        <button type="button" class="opt-chip @(answer == code ? "is-selected" : null)"
-                                disabled="@saving" @onclick="() => answer = code">@label</button>
+                        <button type="button" class="opt-chip @(answer == option.Code ? "is-selected" : null)"
+                                disabled="@saving" @onclick="() => answer = option.Code">@option.Label</button>
                     }
                 </div>
             }
@@ -98,7 +98,7 @@
 
         <div class="adaptive__foot">
             <span class="adaptive__count">@answered @(answered == 1 ? "respuesta" : "respuestas") registradas</span>
-            @if (current is { NeedsMoreInformation: true } && AdaptiveCatalog.For(current.Feature) is not null)
+            @if (current is { NeedsMoreInformation: true, Options: { Count: > 0 } })
             {
                 <button type="button" class="btn-save" disabled="@(answer is null || saving)" @onclick="SubmitAsync">
                     @(saving ? "Guardando…" : "Responder")
@@ -126,6 +126,7 @@
     private AdaptiveAnswerResult? lastResult;
     private string? answer;
     private string? error;
+    private string? pendingClientResponseId;
     private bool saving;
     private int answered;
 
@@ -138,14 +139,15 @@
         saving = true;
         error = null;
 
+        pendingClientResponseId ??= Guid.NewGuid().ToString("n");
+
         var result = await Api.SubmitAdaptiveAnswerAsync(CaseId, new AdaptiveAnswerCreate(
             QuestionId: questionId,
             FeatureName: feature,
             RawAnswer: answer,
-            // Sin conversión a UTC: la API usa la fecha tal cual para elegir el registro
-            // diario, así que debe ser la fecha local del día que se está describiendo.
-            ObservedAt: DateTime.Now,
-            ClientResponseId: Guid.NewGuid().ToString("n")));
+            // La API recibe el instante en UTC y lo convierte a la fecha local configurada.
+            ObservedAt: DateTime.UtcNow,
+            ClientResponseId: pendingClientResponseId));
 
         if (result is null)
         {
@@ -159,6 +161,7 @@
         lastResult = result;
         answered++;
         answer = null;
+        pendingClientResponseId = null;
 
         // El tablero se actualiza en vivo con la predicción recalculada.
         await OnAnswered.InvokeAsync();

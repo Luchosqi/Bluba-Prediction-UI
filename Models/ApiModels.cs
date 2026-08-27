@@ -16,7 +16,18 @@ public sealed record ProbabilityInterval(
     [property: JsonPropertyName("upper")] double Upper,
     [property: JsonPropertyName("level")] double Level);
 
+public sealed record HealthStatus(
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("database")] string Database,
+    [property: JsonPropertyName("model")] string Model,
+    [property: JsonPropertyName("contract_version")] string ContractVersion,
+    [property: JsonPropertyName("timezone")] string Timezone);
+
+public sealed record PredictRequest(
+    [property: JsonPropertyName("cutoff")] DateOnly Cutoff);
+
 public sealed record RiskPrediction(
+    [property: JsonPropertyName("prediction_id")] int PredictionId,
     [property: JsonPropertyName("case_id")] string CaseId,
     [property: JsonPropertyName("cutoff")] DateOnly Cutoff,
     [property: JsonPropertyName("risk_probability")] double RiskProbability,
@@ -80,6 +91,7 @@ public sealed record DysregulationHistoryItem(
     [property: JsonPropertyName("occurred_at")] DateTime OccurredAt,
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("intensity")] string Intensity,
+    [property: JsonPropertyName("severity_level")] int? SeverityLevel,
     [property: JsonPropertyName("suspected_trigger")] TriggerSummary SuspectedTrigger,
     [property: JsonPropertyName("strategy")] DysregulationStrategy Strategy);
 
@@ -104,6 +116,7 @@ public sealed record DysregulationEventApi(
     [property: JsonPropertyName("occurred_at")] DateTime OccurredAt,
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("intensity")] string Intensity,
+    [property: JsonPropertyName("severity_level")] int? SeverityLevel,
     [property: JsonPropertyName("client_event_id")] string? ClientEventId = null);
 
 public sealed record DysregulationCreated(
@@ -145,7 +158,12 @@ public sealed record AdaptiveQuestion(
     [property: JsonPropertyName("question_id")] string? QuestionId = null,
     [property: JsonPropertyName("information_value")] double? InformationValue = null,
     [property: JsonPropertyName("possible_risk_range")] Dictionary<string, double>? PossibleRiskRange = null,
-    [property: JsonPropertyName("prediction_range")] double? PredictionRange = null);
+    [property: JsonPropertyName("prediction_range")] double? PredictionRange = null,
+    [property: JsonPropertyName("options")] List<AdaptiveOption>? Options = null);
+
+public sealed record AdaptiveOption(
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("label")] string Label);
 
 public sealed record AdaptiveAnswerCreate(
     [property: JsonPropertyName("question_id")] string QuestionId,

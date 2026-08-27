@@ -13,13 +13,44 @@ namespace Bluba.Prediction.UI.Services;
 public sealed class BlubaApiClient(HttpClient http, ILogger<BlubaApiClient> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    public const string ContractVersion = "0.3.0";
 
     /// <summary>Detalle de la última llamada fallida; se lee justo después de la llamada.</summary>
     public string? LastError { get; private set; }
+    public HealthStatus? LastHealth { get; private set; }
 
     /// <summary>Sondeo explícito de /health: es lo que decide si la pantalla entra en modo demo.</summary>
-    public async Task<bool> IsOnlineAsync(CancellationToken ct = default) =>
-        await GetAsync<Dictionary<string, string>>("/health", ct) is not null;
+    public async Task<bool> IsOnlineAsync(CancellationToken ct = default)
+    {
+        LastHealth = null;
+        HealthStatus? health;
+        try
+        {
+            var response = await http.GetAsync("/health", ct);
+            if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
+            {
+                health = await response.Content.ReadFromJsonAsync<HealthStatus>(JsonOptions, ct);
+                LastHealth = health;
+                LastError = "/health: base de datos no disponible";
+                return false;
+            }
+
+            health = await ReadAsync<HealthStatus>(response, "/health", ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            return Fail<bool>("/health", ex) ?? false;
+        }
+
+        LastHealth = health;
+        if (health is null) return false;
+        if (!string.Equals(health.ContractVersion, ContractVersion, StringComparison.Ordinal))
+        {
+            LastError = $"/health: contrato incompatible ({health.ContractVersion}; se esperaba {ContractVersion})";
+            return false;
+        }
+        return string.Equals(health.Database, "ok", StringComparison.OrdinalIgnoreCase);
+    }
 
     public Task<List<CaseSummary>?> GetCasesAsync(CancellationToken ct = default) =>
         GetAsync<List<CaseSummary>>("/cases", ct);
@@ -29,6 +60,13 @@ public sealed class BlubaApiClient(HttpClient http, ILogger<BlubaApiClient> logg
 
     public Task<RiskPrediction?> GetLatestPredictionAsync(string caseId, CancellationToken ct = default) =>
         GetAsync<RiskPrediction>($"/cases/{Uri.EscapeDataString(caseId)}/predictions/latest", ct);
+
+    public Task<RiskPrediction?> PredictAsync(
+        string caseId, DateOnly cutoff, CancellationToken ct = default) =>
+        PostAsync<PredictRequest, RiskPrediction>(
+            $"/cases/{Uri.EscapeDataString(caseId)}/predict",
+            new PredictRequest(cutoff),
+            ct);
 
     public Task<RiskChangeExplanation?> GetChangeExplanationAsync(string caseId, CancellationToken ct = default) =>
         GetAsync<RiskChangeExplanation>($"/cases/{Uri.EscapeDataString(caseId)}/predictions/latest/change-explanation", ct);
