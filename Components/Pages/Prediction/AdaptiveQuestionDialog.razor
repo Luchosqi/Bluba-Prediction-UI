@@ -80,10 +80,6 @@
                         </span>
                     </div>
                 </div>
-                <p class="adaptive__reason">
-                    Este porcentaje mide la cobertura de datos que el modelo tiene disponibles hoy para
-                    este caso; no es una escala clínica ni un diagnóstico de certeza.
-                </p>
                 @if (answered == 1 && result.PredictionAfter.Confidence < result.PredictionBefore.Confidence)
                 {
                     <p class="adaptive__hint">

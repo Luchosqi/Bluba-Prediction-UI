@@ -39,6 +39,16 @@ qué es una propuesta piloto pendiente de validación propia.
   chaleco de presión) — esas categorías ya no existen en la UI. `Type`, `StrategyApplied` y
   `StrategyResult` ahora viajan a la API como **valores fijos**, no elegidos por la familia. Ver
   §2, §8.2 y §8.3 actualizados, y la sección de implicancias para el backend al final de §2.
+- **2026-08-26 (v6):** dos ajustes de copy/tono, sin cambios de datos ni de endpoints:
+  1. En el diálogo "Completar datos del día" (`AdaptiveQuestionDialog.razor`) se sacó la frase
+     *"Este porcentaje mide la cobertura de datos..."* del panel de resultado — quedaron sólo los
+     datos (valor registrado, cobertura de datos, riesgo). La aclaración de §4 se mantiene en el
+     tooltip de la Billetera Sensorial, que es opt-in (se abre al hacer clic), no siempre visible.
+  2. El equipo (feedback directo, no literatura) marcó que **"Ingresar desregulación" / "Registrar
+     desregulación"** se leen como si el niño se desregulara constantemente, lo cual puede
+     sobreestimular o angustiar a quien lee el formulario. Se renombró el botón a **"Registrar
+     momento +"** y el título del diálogo a **"Contar qué pasó"** (`PredictionBoard.razor` y
+     `DysregulationWizard.razor`). Es una decisión de tono, no bibliográfica — ver §8.5.
 
 ---
 
@@ -46,15 +56,14 @@ qué es una propuesta piloto pendiente de validación propia.
 
 | Archivo | Cambio | Por qué |
 | --- | --- | --- |
-| `Components/Pages/Prediction/DysregulationWizard.razor` | **(v5)** Ya no es un wizard de varios pasos: una sola pantalla con la escala **Leve/Moderada/Alta/Crisis · riesgo de seguridad** (botones) + un textarea de contexto libre. Escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" con rangos inventados → nombres justificados por literatura | §2 |
+| `Components/Pages/Prediction/DysregulationWizard.razor` | **(v5)** Ya no es un wizard de varios pasos: una sola pantalla con la escala **Leve/Moderada/Alta/Crisis · riesgo de seguridad** (botones) + un textarea de contexto libre. Escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" con rangos inventados → nombres justificados por literatura. **(v6)** Título del diálogo "Registrar desregulación" → **"Contar qué pasó"** | §2, §8.5 |
 | `Components/Pages/Prediction/InterventionWizard.razor` | Nota de trazabilidad: mismo criterio de resultado (regulación exitosa/parcial/sin efecto) que el registro de desregulaciones | §3 |
-| `Components/Pages/Prediction/PredictionBoard.razor` | Filtro "Tipo" del historial de desregulaciones actualizado a Nivel 1-4 | §2 |
+| `Components/Pages/Prediction/PredictionBoard.razor` | Filtro "Tipo" del historial de desregulaciones actualizado a Nivel 1-4. **(v6)** Botón "Ingresar desregulación +" → **"Registrar momento +"** | §2, §8.5 |
 | `Services/BoardMapper.cs` | `SeverityOf()` reconoce el vocabulario nuevo y el histórico (`leve`/`moderada`/`nivel N`) para no des-colorear episodios antiguos | §2, §5 |
 | `Services/DemoData.cs` | Episodios de ejemplo (modo demo sin API) actualizados a "Nivel 1"…"Nivel 3" | §2 |
-| `Components/Pages/Prediction/AdaptiveQuestionDialog.razor` | "Confianza" → "Cobertura de datos" + aclaración explícita de que no es una escala clínica | §4 |
-| `Components/Pages/Prediction/SensoryWalletCard.razor` | Tooltip de "Confianza" reforzado con la misma aclaración | §4 |
+| `Components/Pages/Prediction/AdaptiveQuestionDialog.razor` | "Confianza" → "Cobertura de datos" + aclaración de que no es una escala clínica. **(v6)** Se sacó esa frase del panel de resultado — quedan sólo los datos | §4 |
+| `Components/Pages/Prediction/SensoryWalletCard.razor` | Tooltip de "Confianza" con la misma aclaración (se mantiene, es opt-in) | §4 |
 | `Components/Shared/MamaBlubaHelper.razor` | Se eliminó la línea **Fono SENDA (1412)** de los números de apoyo | §5 |
-| `wwwroot/app.css` | Nueva clase `.opt-grid-2` (grilla 2×2 para los 4 niveles) | — |
 | `README.md` | Actualizada la sección "Decisiones de mapeo" con el nuevo vocabulario | — |
 | `Services/AdaptiveCatalog.cs` (check-in diario) | **Sin cambio de código** — revisado y justificado por primera vez en v2 | §8.1 |
 | `DysregulationWizard.razor` (`Supports`, "formas de calmar") | **(v5) Eliminado del formulario** junto con el resto de los pasos — la justificación de §8.2 (incluida la nota del chaleco) queda como referencia para si se reintroduce más adelante | §8.2 |
@@ -225,11 +234,15 @@ un puntaje de certeza diagnóstica.
 Como esa palabra puede leerse como una afirmación más fuerte de lo que es (ver motivación al
 inicio del documento), se cambió el copy en dos lugares:
 
-- `AdaptiveQuestionDialog.razor`: la etiqueta pasó de "Confianza" a **"Cobertura de datos"**, y
-  se agregó la frase: *"Este porcentaje mide la cobertura de datos que el modelo tiene
-  disponibles hoy para este caso; no es una escala clínica ni un diagnóstico de certeza."*
+- `AdaptiveQuestionDialog.razor`: la etiqueta pasó de "Confianza" a **"Cobertura de datos"**.
+  En v4 se había agregado además la frase *"Este porcentaje mide la cobertura de datos que el
+  modelo tiene disponibles hoy para este caso; no es una escala clínica ni un diagnóstico de
+  certeza."* **(v6)** Esa frase se sacó del panel de resultado por pedido explícito: el panel
+  debe mostrar sólo los datos (valor registrado, cobertura de datos, riesgo), sin texto
+  explicativo adicional — el mismo criterio de "menos es más" que en §2 (v4/v5).
 - `SensoryWalletCard.razor`: el tooltip del estadístico "Confianza" (que se mantiene con ese
-  nombre en la tarjeta principal por espacio) se reforzó con la misma aclaración.
+  nombre en la tarjeta principal por espacio) conserva la aclaración — es opt-in (aparece sólo
+  al hacer clic), no un texto siempre visible, así que no se consideró parte del mismo pedido.
 
 **No se requiere ningún cambio de backend para este punto** — es puramente de copy/UX. Si el
 equipo quiere, a futuro, ofrecer una escala de autoeficacia/confianza parental real y validada,
@@ -437,6 +450,30 @@ mostrarlo, la implementación de v3 (revertida) es el punto de partida — el c�
 el repo, pero el enfoque (mapear el campo + dibujar una marca en el mismo ángulo que la aguja)
 sigue siendo válido.
 
+### 8.5 Tono del formulario: "Ingresar/Registrar desregulación" (v6)
+
+Este punto **no viene de literatura**, viene de feedback directo del equipo (captura de chat
+adjunta a la conversación de este cambio): usar el verbo "desregulación" como la acción principal
+del botón y del título del diálogo se puede leer como si se esperara que el niño se desregule
+constantemente, lo que puede angustiar o sobreestimular a quien está llenando el formulario en
+medio de una situación difícil. La sugerencia del equipo fue reformular la pregunta hacia las
+causas/contexto del episodio en vez de hacia el hecho de "registrar una desregulación".
+
+**Implementado:**
+
+| Elemento | Antes | Ahora |
+| --- | --- | --- |
+| Botón (`PredictionBoard.razor`) | "Ingresar desregulación +" | **"Registrar momento +"** |
+| Título del diálogo (`DysregulationWizard.razor`) | "Registrar desregulación" | **"Contar qué pasó"** |
+
+**Inconsistencia que queda pendiente, a propósito:** no se tocó el título de la sección
+"Historial de desregulaciones" ni el KPI "DESREGULACIONES (CRISIS)" de la Bitácora Diaria
+(`Ficha.razor`), ni el nombre del endpoint (`/dysregulations`) — el pedido fue específicamente
+sobre la acción de registrar, no sobre cómo se llaman los registros ya guardados. Si el equipo
+quiere consistencia total de vocabulario en toda la app, es una decisión de producto aparte que
+convendría tomar junto con el resto del texto (por ejemplo, "Momentos difíciles" en vez de
+"Desregulaciones" en el historial), no algo que valga la pena resolver a medias en este cambio.
+
 ---
 
 ## 9. Guion de demo (≈ 1:30 min)
@@ -448,7 +485,7 @@ ya actualizado).
 | Tiempo | Acción | Qué decir |
 | --- | --- | --- |
 | 0:00–0:15 | Abrir la Ficha del Consultante, pestaña **"Predicción (Nuevo)"** | "Esta es la Billetera Sensorial. Antes decía 'Confianza X%' como si fuera una certeza clínica; ahora aclara que es cobertura de datos del modelo, no un diagnóstico." — pasar el mouse sobre el estadístico para mostrar el tooltip nuevo |
-| 0:15–0:35 | Click en **"Ingresar desregulación +"** | "Registrar una crisis ya no usa una escala de 'Leve/Moderada/Severa' con rangos numéricos inventados. Los mismos 4 nombres ahora están justificados en literatura reciente sobre desregulación en autismo (EOQ y EDI), uno de esos instrumentos ya validado con muestra chilena — y el formulario se simplificó a una sola pantalla." |
+| 0:15–0:35 | Click en **"Registrar momento +"** | "Antes decía 'Ingresar desregulación', como si el niño se desregulara todo el tiempo. Ahora es 'Contar qué pasó' — y la escala de intensidad tiene nombres justificados en literatura reciente (EOQ y EDI), uno de esos instrumentos ya validado con muestra chilena." |
 | 0:35–0:55 | Elegir, por ejemplo, **"Alta"**, escribir una frase corta en "Contexto en palabras" (ej. "Ruido fuerte en el recreo") | "Sólo pedimos el nivel y una descripción libre del contexto — nada de pasos ni campos de más" |
 | 0:55–1:05 | **Guardar registro** | "Queda guardado en el historial con el nivel correcto" — mostrar que aparece en "Historial de desregulaciones" |
 | 1:05–1:20 | Abrir el panel flotante **"Mamá Bluba"** (esquina inferior) → "Ver más líneas de ayuda" | "Sacamos el Fono SENDA: es la línea de drogas y alcohol, no corresponde a este público. Quedaron las líneas que sí aplican." |
