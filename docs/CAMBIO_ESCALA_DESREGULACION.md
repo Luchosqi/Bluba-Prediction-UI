@@ -25,6 +25,13 @@ qué es una propuesta piloto pendiente de validación propia.
   pendientes: la nota de evidencia débil para el chaleco de presión (§8.2) y la marca del
   `decision_threshold` real de la API sobre el medidor de riesgo (§8.4). Probado en navegador
   contra la API real.
+- **2026-08-26 (v4):** decisión de producto: el Paso 1 del wizard de desregulación había quedado
+  con demasiados campos (duración, recuperación, checklist de conductas, aviso de auto-ajuste).
+  Se revirtió a **sólo la escala de niveles** (mismo estilo de botón simple que el resto del
+  wizard), sin recolectar las demás dimensiones del EOQ por ahora. También se sacó la marca del
+  `decision_threshold` y su nota del medidor (quedó sólo el gráfico + Confianza + Faltan datos,
+  igual que antes), y se quitaron las menciones a la ruta de este archivo dentro de textos
+  visibles en la UI. Ver §2 y §8.4 actualizados, y el aviso para el backend al final de §2.
 
 ---
 
@@ -32,7 +39,7 @@ qué es una propuesta piloto pendiente de validación propia.
 
 | Archivo | Cambio | Por qué |
 | --- | --- | --- |
-| `Components/Pages/Prediction/DysregulationWizard.razor` | Paso 1 rediseñado: escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" → escala ordinal **Nivel 1-4** + duración + tiempo de recuperación + checklist de conductas de riesgo, con auto-ajuste a Nivel 4 si hay agresión física o autolesión | §2 |
+| `Components/Pages/Prediction/DysregulationWizard.razor` | Paso 1: escala "Leve(1-3)/Moderada(4-7)/Severa(8-10)" → escala ordinal **Nivel 1-4**, como botones simples (mismo estilo que el resto del wizard). **(v4)** Sin duración/recuperación/checklist de conductas — se probaron en v2/v3 y se sacaron por exceso de campos | §2 |
 | `Components/Pages/Prediction/InterventionWizard.razor` | Nota de trazabilidad: mismo criterio de resultado (regulación exitosa/parcial/sin efecto) que el registro de desregulaciones | §3 |
 | `Components/Pages/Prediction/PredictionBoard.razor` | Filtro "Tipo" del historial de desregulaciones actualizado a Nivel 1-4 | §2 |
 | `Services/BoardMapper.cs` | `SeverityOf()` reconoce el vocabulario nuevo y el histórico (`leve`/`moderada`/`nivel N`) para no des-colorear episodios antiguos | §2, §5 |
@@ -45,7 +52,7 @@ qué es una propuesta piloto pendiente de validación propia.
 | `Services/AdaptiveCatalog.cs` (check-in diario) | **Sin cambio de código** — revisado y justificado por primera vez en v2 | §8.1 |
 | `DysregulationWizard.razor` (`Supports`, "formas de calmar") | Nota condicional agregada al elegir "Presión profunda / Chaleco" (evidencia débil/mixta) | §8.2 |
 | `DysregulationWizard.razor` (`Locations`, `Transitions`, `Triggers`) | **Sin cambio de código** — justificado bajo el marco de Evaluación Funcional de Conducta (FBA) | §8.3 |
-| `SensoryWalletCard.razor` + `Models/BoardModels.cs` + `Services/BoardMapper.cs` (medidor) | **Sin justificación clínica para los cuartiles de color** (se mantienen por legibilidad) — se agregó la marca del `decision_threshold` real de la API sobre el arco + nota aclaratoria | §8.4 |
+| `SensoryWalletCard.razor` + `Models/BoardModels.cs` + `Services/BoardMapper.cs` (medidor) | **Sin justificación clínica para los cuartiles de color** (se mantienen por legibilidad). **(v4)** Se probó agregar la marca del `decision_threshold` real de la API + una nota, y se revirtió por decisión de diseño: el medidor vuelve a mostrar sólo el gráfico | §8.4 |
 
 ---
 
@@ -61,20 +68,17 @@ qué es una propuesta piloto pendiente de validación propia.
 
 ### Qué cambió en el frontend
 Antes el Paso 1 mostraba 3 botones ("Leve 1-3", "Moderada 4-7", "Severa 8-10") con rangos
-numéricos **inventados**, sin ninguna fuente. Ahora:
+numéricos **inventados**, sin ninguna fuente. Ahora muestra 4 botones simples con la escala
+ordinal Nivel 1-4 (ver tabla abajo) — mismo estilo de botón (`opt-chip`) que usa el resto del
+wizard, sin tarjetas ni descripciones adicionales.
 
-1. **Escala ordinal Nivel 1-4** (ver tabla abajo), con nombre + descripción observable por nivel.
-2. **Duración aproximada** del episodio: `<5 min`, `5–15 min`, `15–60 min`, `>60 min`.
-3. **Tiempo de recuperación** (vuelta a la línea base): mismos 4 tramos.
-4. **Checklist de conductas observadas**: llanto/vocalización, evitación/huida, agresión verbal,
-   agresión física, autolesión.
-5. Si se marca **agresión física** o **autolesión**, el nivel se ajusta automáticamente a
-   **Nivel 4** (el usuario puede corregirlo manualmente si no corresponde).
-
-Estas 4 dimensiones (intensidad, duración, recuperación, conductas/impacto) replican
-directamente las que usa el **Emotional Outburst Questionnaire (EOQ)**, el instrumento con
-evidencia más reciente y más cercana (incluye Chile) para caracterizar episodios de
-desregulación — ver referencia [6] en §6.
+**(v4) Decisión de alcance:** en v2/v3 el Paso 1 llegó a incluir además duración aproximada,
+tiempo de recuperación y un checklist de conductas de riesgo (con auto-ajuste a Nivel 4), las 4
+dimensiones que usa el **Emotional Outburst Questionnaire** (EOQ — ver referencia [6] en §6).
+Se sacaron del formulario por decisión de producto: quedaba con demasiados campos para un
+registro que se espera breve. **El frontend hoy sólo envía el nivel de la escala** — nada de
+duración/recuperación/conductas viaja a la API. Si el equipo quisiera capturar esas dimensiones
+más adelante, el EOQ sigue siendo la referencia a usar, pero eso queda fuera del alcance actual.
 
 ### La escala Nivel 0-4 (propuesta compuesta — **no es un instrumento validado por sí solo**)
 
@@ -97,36 +101,43 @@ cualquier material de difusión o demo.
 ### Qué debe cambiar el backend (compañero)
 
 El campo `intensity` sigue siendo un string libre (`Field(min_length=1)`, sin `Literal` ni
-enum), así que **la API ya acepta los valores nuevos sin romperse**. Pero hay 3 cosas que sí
-requieren trabajo de backend para que el cambio quede completo:
+enum), así que **la API ya acepta los valores nuevos sin romperse**: hoy llega como
+`"Nivel 1 (Activación leve)"` … `"Nivel 4 (Crisis / riesgo de seguridad)"` en vez de
+`"Leve (1-3)"` … `"Severa (8-10)"`. Nada más cambia en el payload — el frontend **no** envía
+duración, recuperación ni conductas (eso se descartó en v4, ver arriba).
 
-1. **Nueva columna normalizada para severidad**, en vez de depender de parsear el string libre:
-   ```python
-   # app/schemas/case.py — DysregulationCreateIn
-   severity_level: int = Field(ge=0, le=4)          # Nivel 0-4, ver tabla arriba
-   duration_bucket: str | None = None                # "<5min" | "5-15min" | "15-60min" | ">60min"
-   recovery_bucket: str | None = None                # mismos valores que duration_bucket
-   risk_behaviors: list[str] = Field(default_factory=list)  # subset de RiskBehaviors (ver wizard)
-   ```
-   Y en el modelo/migración: agregar `severity_level SMALLINT NOT NULL`, `duration_bucket
-   VARCHAR(20)`, `recovery_bucket VARCHAR(20)`, y una tabla o columna JSON para
-   `risk_behaviors` (columnas nullable para no romper filas existentes).
+> **⚠️ Aviso para el compañero de backend:** no sé cuál es la mejor forma de modelar esto del
+> lado del backend (si conviene normalizar el nivel en una columna propia, dejarlo sólo como
+> texto, o algo intermedio) — queda a tu criterio cómo trabajar ese flujo. Van 3 opciones que
+> evalué, de menor a mayor esfuerzo, para que elijas la que tenga más sentido con el resto del
+> modelo de datos:
+>
+> - **Opción A — no tocar el esquema.** Dejar `intensity` como está (string libre). Sólo
+>   actualizar el *keyword matching* de `strategy.py` (punto 3 más abajo) para que reconozca
+>   `"nivel 3"` / `"nivel 4"` en vez de `"severa"` / `"moderada"`. Es el cambio más chico, pero
+>   cualquier filtro o reporte futuro por severidad sigue dependiendo de parsear el string.
+> - **Opción B — normalizar en el backend, sin tocar el frontend.** Agregar una columna
+>   `severity_level SMALLINT` a `dysregulation_events`, calculada en el propio backend al recibir
+>   el POST (parseando el primer dígito de `intensity`, ej. con una regex `r"Nivel (\d)"`). El
+>   frontend no cambia nada; el backend gana un campo confiable para filtrar/reportar.
+> - **Opción C — contrato explícito.** Agregar `severity_level: int = Field(ge=1, le=4)` a
+>   `DysregulationCreateIn` y pedirle al frontend que lo mande además del texto. Es la opción
+>   más robusta a largo plazo (no depende de parsear strings), pero requiere un cambio (chico)
+>   en `DysregulationWizard.SaveAsync()` y en `Models/ApiModels.cs: DysregulationCreate` para
+>   agregar ese campo — avísame si prefieres esta opción y lo agrego.
+>
+> Si en el futuro se decide capturar duración/recuperación/conductas (dimensiones del EOQ, ver
+> arriba), lo mismo aplica: mejor definir el contrato de esos campos en el backend primero, en
+> vez de que el frontend improvise empaquetándolos como texto libre.
 
-   **Mientras esta columna no exista**, el frontend empaqueta duración/recuperación/conductas
-   como texto dentro de `suspected_trigger_text` (ej. `"Duración: 5–15 min. Recuperación: 5–15
-   min. Conductas: Agresión física"`), junto con lugar/transición/desencadenante. Es un
-   parche temporal: ese texto pasa además por `trigger_analyzer()` (`app/api/routes.py:190`),
-   que no tiene patrones para estas frases, así que hoy no genera tags — no rompe nada, pero
-   tampoco aporta.
-
-2. **Filtro por nivel en `GET /cases/{id}/dysregulations`** debería usar la nueva columna
+1. **Filtro por nivel en `GET /cases/{id}/dysregulations`** debería usar la nueva columna
    `severity_level` (`Query(None, ge=0, le=4)`) en vez del match exacto sobre `intensity`
    (`app/api/routes.py:264-265`). *Mientras no exista*, el filtro del frontend (`PredictionBoard.razor`)
    sólo hace match exacto contra el string nuevo (`"Nivel 1 (Activación leve)"`, etc.), así que
    **los episodios históricos con el vocabulario viejo no aparecerán al filtrar por nivel**
    (sí siguen apareciendo en "Todos" y en el historial general).
 
-3. **`app/services/strategy.py`, diccionario `TAG_PATTERNS["HIGH_ALERT"]` (línea 24)** hace
+2. **`app/services/strategy.py`, diccionario `TAG_PATTERNS["HIGH_ALERT"]` (línea 24)** hace
    *keyword matching* sobre el texto de `intensidad` buscando las palabras `"severa"` y
    `"moderada"`. Con el vocabulario nuevo (`"Nivel 4 (Crisis...)"`) esas palabras ya no
    aparecen, así que el tag `HIGH_ALERT` **dejará de dispararse** para las estrategias
@@ -134,7 +145,7 @@ requieren trabajo de backend para que el cambio quede completo:
    `"riesgo de seguridad"`, o mejor: usar directamente `severity_level >= 3` una vez exista la
    columna).
 
-4. Opcional pero recomendado: `app/synthetic/generator.py:101-102` genera los eventos
+3. Opcional pero recomendado: `app/synthetic/generator.py:101-102` genera los eventos
    sintéticos con el vocabulario viejo (`"Severa (8-10)"`, etc.) para entrenar el modelo. Si se
    decide migrar el dataset sintético al vocabulario nuevo, hay que regenerar y reentrenar
    (`generate-synthetic` + `train-model`, ver `README.md` del backend).
@@ -256,20 +267,24 @@ comité de ética.
 ## 7. Riesgos y límites de este cambio (frontend-only)
 
 - El **filtro por nivel** del historial de desregulaciones no es retrocompatible con datos
-  antiguos (§2, punto 2) hasta que el backend agregue `severity_level`.
-- El tag `HIGH_ALERT` de `strategy.py` deja de dispararse con el vocabulario nuevo (§2, punto 3)
+  antiguos (§2, punto 1) hasta que el backend decida cómo normalizar la severidad (ver el aviso
+  para el backend en §2).
+- El tag `HIGH_ALERT` de `strategy.py` deja de dispararse con el vocabulario nuevo (§2, punto 2)
   hasta que se actualicen sus patrones — esto puede degradar silenciosamente la calidad de las
   recomendaciones de "Cuidado sugerido" para casos de alta severidad.
-- La escala Nivel 0-4 es una **propuesta compuesta**, no un instrumento publicado y validado en
+- La escala Nivel 1-4 es una **propuesta compuesta**, no un instrumento publicado y validado en
   sí mismo. Cualquier comunicación externa debe dejarlo explícito (ver §2).
 - La referencia [7] necesita completarse antes de usarse fuera de este documento interno.
-- **(v2, implementado en v3)** El medidor de riesgo usa cuartiles de color (25/50/75) sin
-  respaldo clínico. Se mapeó `decision_threshold` de la API al medidor y se dibuja como marca
-  sobre el arco, con nota aclaratoria — ver §8.4. Los cuartiles de color siguen siendo una
-  convención visual (se mantienen por legibilidad), ahora con esa salvedad explícita en pantalla.
+- **(v2, implementado en v3, revertido en v4)** El medidor de riesgo usa cuartiles de color
+  (25/50/75) sin respaldo clínico. Se probó mapear `decision_threshold` de la API y marcarlo
+  sobre el arco (§8.4), pero se revirtió por decisión de diseño (mantener el medidor simple) —
+  el `decision_threshold` calculado por la API sigue sin usarse en el frontend.
 - **(v2, implementado en v3)** "Presión profunda / Chaleco" en la lista de formas de calmar
-  tiene evidencia débil/mixta en la literatura ([17]) — se agregó una nota condicional en el
-  wizard cuando se selecciona esa opción. Ver §8.2.
+  tiene evidencia débil/mixta en la literatura ([17]) — se mantiene la nota condicional en el
+  wizard cuando se selecciona esa opción (§8.2), es lo único de v2/v3 que no se revirtió.
+- **(v4)** El wizard ya no recolecta duración, tiempo de recuperación ni conductas de riesgo del
+  episodio — sólo el nivel de la escala. Si el equipo quiere retomar esas dimensiones del EOQ
+  más adelante, conviene definir primero el contrato en el backend (ver aviso en §2).
 
 ---
 
@@ -360,26 +375,22 @@ literatura de modelos predictivos clínicos:
 | [22] | Guía metodológica sobre selección de umbrales de decisión bajo costos asimétricos (exactamente lo que hace `optimize_alert_threshold`) |
 | [23] | Buenas prácticas de comunicación de riesgo: recomienda anclar los cortes de color a algo interpretable (un umbral de decisión real), no a una división matemática sin significado clínico |
 
-**Implementado (v3), opción 1 + una versión de la 2:**
+**Implementado en v3, revertido en v4.** Se llegó a implementar y verificar en navegador contra
+la API real (`decision_threshold = 15 %` para `PAC-000`, marca visible sobre la franja verde,
+cerca de la aguja): se agregó `RiskGauge.DecisionThreshold`, se mapeó en `BoardMapper.ToGauge()`
+y se dibujó una línea sobre el arco + una nota debajo de la leyenda explicando qué significaba.
 
-1. `Models/BoardModels.cs: RiskGauge` ahora tiene un campo `DecisionThreshold` (0-1, nullable) y
-   `Services/BoardMapper.ToGauge()` lo mapea desde `RiskPrediction.DecisionThreshold`.
-   `SensoryWalletCard.razor` dibuja una línea corta cruzando el arco en el ángulo correspondiente
-   (mismo cálculo de ángulo que ya usaba la aguja, radio 79–105 para cruzar el grosor del arco).
-2. Debajo de la leyenda de colores se agregó, con la clase `.state-note` ya existente (sin CSS
-   nuevo), el texto: *"La marca oscura del arco indica el umbral de alerta que el modelo calibró
-   para este caso (X%); los colores de fondo son una referencia visual, no un corte clínico
-   validado."* Sólo se muestra cuando la API entrega el dato (`DecisionThreshold` no nulo); en
-   modo demostración (`DemoData.cs`) no se inventó un valor, así que ahí no aparece marca ni nota.
-3. Se mantuvieron los 4 cuartiles de color por legibilidad (opción 3 del borrador), combinada con
-   la marca real del umbral en vez de reemplazarlos — es la combinación menos invasiva con el
-   diseño existente.
+**Se revirtió todo eso en v4** por decisión de diseño: el medidor estaba dando "demasiada
+justificación" en pantalla (la nota explicando colores + el umbral). Hoy `SensoryWalletCard.razor`
+volvió a mostrar sólo el gráfico, "Confianza" y "Faltan datos" — sin la marca ni la nota.
+`RiskGauge` ya no tiene el campo `DecisionThreshold`.
 
-**Verificado en navegador** contra la API real (`PAC-000`): `decision_threshold = 15 %`, la
-marca aparece correctamente sobre la franja verde, muy cerca de la aguja (Score 13). Los
-episodios históricos con vocabulario antiguo (`"Intensidad: Severa"`, `"Intensidad: Moderada"`)
-se siguen coloreando bien gracias a la compatibilidad agregada en `BoardMapper.SeverityOf()`
-(§2).
+**El hallazgo sigue siendo válido y queda documentado para cuando se quiera retomar:** la API
+calcula `decision_threshold` con un método estadístico razonable (`optimize_alert_threshold`,
+citas [21]-[23] arriba) y hoy el frontend no lo usa para nada. Si en el futuro se quiere volver a
+mostrarlo, la implementación de v3 (revertida) es el punto de partida — el código ya no está en
+el repo, pero el enfoque (mapear el campo + dibujar una marca en el mismo ángulo que la aguja)
+sigue siendo válido.
 
 ---
 
@@ -392,9 +403,9 @@ ya actualizado).
 | Tiempo | Acción | Qué decir |
 | --- | --- | --- |
 | 0:00–0:10 | Abrir la Ficha del Consultante, pestaña **"Predicción (Nuevo)"** | "Esta es la Billetera Sensorial. Antes decía 'Confianza X%' como si fuera una certeza clínica; ahora aclara que es cobertura de datos del modelo, no un diagnóstico." — pasar el mouse sobre el estadístico para mostrar el tooltip nuevo |
-| 0:10–0:25 | Click en **"Ingresar desregulación +"** | "Registrar una crisis ya no usa una escala de 'Leve/Moderada/Severa' inventada. Ahora son 4 niveles con criterios observables, basados en el EOQ y el EDI — dos instrumentos con evidencia reciente, uno de ellos validado con muestra chilena." |
-| 0:25–0:45 | Elegir **Nivel 2**, marcar duración **"5–15 min"** y recuperación **"5–15 min"**, luego marcar **"Agresión física"** en el checklist | "Si aparece agresión o autolesión, el sistema sube automáticamente a Nivel 4 — está empíricamente asociado a episodios más severos" — señalar el aviso amarillo que aparece explicando el ajuste |
-| 0:45–0:55 | Avanzar rápido: Paso 2 (lugar/transición) → Paso 3 (desencadenante) | Sin detenerse, sólo clickear una opción de cada uno |
-| 0:55–1:10 | Paso 4: elegir un apoyo y una efectividad → **Guardar registro** | "El registro queda guardado en el historial ya con el nivel correcto" — mostrar que aparece "Nivel 4" en "Historial de desregulaciones" |
+| 0:10–0:25 | Click en **"Ingresar desregulación +"** | "Registrar una crisis ya no usa una escala de 'Leve/Moderada/Severa' inventada. Ahora son 4 niveles con nombre justificado en literatura reciente (EOQ y EDI), uno de esos instrumentos ya validado con muestra chilena." |
+| 0:25–0:35 | Elegir, por ejemplo, **"Desregulación alta"** (Nivel 3) → **Siguiente** | Sin más campos en este paso — es intencional, se mantiene breve |
+| 0:35–0:55 | Avanzar rápido: Paso 2 (lugar/transición) → Paso 3 (desencadenante) → Paso 4 (apoyo, opcionalmente "Presión profunda / Chaleco" para mostrar la nota de evidencia limitada) | Sin detenerse en los primeros dos; en el 4 puede pausar 2 segundos si quiere mostrar la nota del chaleco |
+| 0:55–1:10 | Efectividad → **Guardar registro** | "El registro queda guardado en el historial con el nivel correcto" — mostrar que aparece en "Historial de desregulaciones" |
 | 1:10–1:20 | Abrir el panel flotante **"Mamá Bluba"** (esquina inferior) → "Ver más líneas de ayuda" | "Sacamos el Fono SENDA: es la línea de drogas y alcohol, no corresponde a este público. Quedaron las líneas que sí aplican." |
 | 1:20–1:30 | Cierre | "Todo esto está documentado con las citas exactas y los cambios pendientes de backend en `docs/CAMBIO_ESCALA_DESREGULACION.md`, en la rama `dev`." |

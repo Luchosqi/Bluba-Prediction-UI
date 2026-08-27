@@ -28,62 +28,13 @@
             {
                 case 1:
                     <h3 class="wizard__question">¿Qué nivel de desregulación observaste?</h3>
-                    <p class="wizard__hint">
-                        Escala de 4 niveles basada en intensidad, duración, tiempo de recuperación y conductas
-                        de riesgo reportadas en literatura reciente (EOQ, Teixeira et al., 2024; EDI, Mazefsky
-                        et al., 2018). Fundamento completo en <code>docs/CAMBIO_ESCALA_DESREGULACION.md</code>.
-                    </p>
-                    <div class="opt-grid-2">
+                    <div class="opt-chips">
                         @foreach (var option in Levels)
                         {
-                            <button type="button" class="opt-intensity @(level == option.ApiValue ? "is-selected" : null)"
-                                    @onclick="() => level = option.ApiValue">
-                                <div class="opt-intensity__head">
-                                    <span class="opt-intensity__dot" style="background:@option.Color"></span>
-                                    <span class="opt-intensity__range">Nivel @option.Code</span>
-                                </div>
-                                <p class="opt-intensity__name">@option.Name</p>
-                                <p class="opt-intensity__desc">@option.Description</p>
-                            </button>
+                            <button type="button" class="opt-chip @(level == option.ApiValue ? "is-selected" : null)"
+                                    @onclick="() => level = option.ApiValue">@option.Name</button>
                         }
                     </div>
-
-                    <p class="wizard__group-label">Duración aproximada del episodio</p>
-                    <div class="opt-chips">
-                        @foreach (var option in DurationBuckets)
-                        {
-                            <button type="button" class="opt-chip @(duration == option ? "is-selected" : null)"
-                                    @onclick="() => duration = option">@option</button>
-                        }
-                    </div>
-
-                    <p class="wizard__group-label">Tiempo hasta volver a la línea base (recuperación)</p>
-                    <div class="opt-chips">
-                        @foreach (var option in RecoveryBuckets)
-                        {
-                            <button type="button" class="opt-chip @(recovery == option ? "is-selected" : null)"
-                                    @onclick="() => recovery = option">@option</button>
-                        }
-                    </div>
-
-                    <p class="wizard__group-label">Conductas observadas durante el episodio</p>
-                    <div class="opt-chips">
-                        @foreach (var option in RiskBehaviors)
-                        {
-                            <button type="button" class="opt-chip @(behaviors.Contains(option) ? "is-selected" : null)"
-                                    @onclick="() => ToggleBehavior(option)">@option</button>
-                        }
-                    </div>
-                    @if (levelLockedByRisk)
-                    {
-                        <p class="wizard__notice">
-                            Nivel ajustado a 4 (Crisis / riesgo de seguridad): la agresión física y la
-                            autolesión se asocian empíricamente a episodios más severos (estudio de crisis
-                            leves vs. severas en autismo, Scientific Reports, 2024 — ver referencia completa
-                            en <code>docs/CAMBIO_ESCALA_DESREGULACION.md</code>). Puedes corregirlo
-                            manualmente si no corresponde.
-                        </p>
-                    }
                     break;
 
                 case 2:
@@ -203,9 +154,6 @@
 
     private int step = 1;
     private string level = "Nivel 2 (Desregulación moderada)";
-    private string? duration;
-    private string? recovery;
-    private readonly HashSet<string> behaviors = new();
     private string? location;
     private string? transition;
     private string? trigger;
@@ -215,37 +163,19 @@
     private string? error;
     private bool saving;
 
-    private bool levelLockedByRisk => behaviors.Contains("Agresión física") || behaviors.Contains("Autolesión");
-
     /// <summary>
-    /// Escala ordinal 0–4 propuesta a partir de EOQ (intensidad/duración/recuperación/conductas,
-    /// Teixeira et al., 2024) y EDI (reactividad como continuo, Mazefsky et al., 2018). Reemplaza la
-    /// escala previa "Leve/Moderada/Severa (1-10)", que no tenía respaldo bibliográfico. El formato
-    /// "Nivel N (Etiqueta)" se mantiene compatible con BoardMapper.IntensityLabel, que corta en "(".
-    /// Detalle y fuentes completas en docs/CAMBIO_ESCALA_DESREGULACION.md.
+    /// Escala de niveles basada en literatura reciente sobre desregulación en autismo (EOQ, EDI).
+    /// Reemplaza la escala previa "Leve/Moderada/Severa (1-10)", sin respaldo bibliográfico. El
+    /// formato "Nivel N (Etiqueta)" se mantiene compatible con BoardMapper.IntensityLabel, que
+    /// corta en "(". Fundamento y citas completas en docs/CAMBIO_ESCALA_DESREGULACION.md.
     /// </summary>
-    private static readonly (string ApiValue, string Code, string Name, string Color, string Description)[] Levels =
+    private static readonly (string ApiValue, string Name)[] Levels =
     [
-        ("Nivel 1 (Activación leve)", "1", "Activación leve",
-            "#38a477", "Reactividad y recuperación breves (<5 min); se autorregula con apoyo mínimo."),
-        ("Nivel 2 (Desregulación moderada)", "2", "Desregulación moderada",
-            "#dca82e", "Reactividad y recuperación de 5–15 min; requiere co-regulación activa del adulto."),
-        ("Nivel 3 (Desregulación alta)", "3", "Desregulación alta",
-            "#e2793f", "Reactividad y/o recuperación de 15–60 min; pérdida funcional significativa de la rutina."),
-        ("Nivel 4 (Crisis / riesgo de seguridad)", "4", "Crisis / riesgo de seguridad",
-            "#d85d5d", "Duración o recuperación >60 min, o agresión física/autolesión; requiere co-regulación intensiva."),
+        ("Nivel 1 (Activación leve)", "Activación leve"),
+        ("Nivel 2 (Desregulación moderada)", "Desregulación moderada"),
+        ("Nivel 3 (Desregulación alta)", "Desregulación alta"),
+        ("Nivel 4 (Crisis / riesgo de seguridad)", "Crisis / riesgo de seguridad"),
     ];
-
-    private static readonly string[] DurationBuckets = ["<5 min", "5–15 min", "15–60 min", ">60 min"];
-    private static readonly string[] RecoveryBuckets = ["<5 min", "5–15 min", "15–60 min", ">60 min"];
-    private static readonly string[] RiskBehaviors =
-        ["Llanto / vocalización", "Evitación / huida", "Agresión verbal", "Agresión física", "Autolesión"];
-
-    private void ToggleBehavior(string option)
-    {
-        if (!behaviors.Remove(option)) behaviors.Add(option);
-        if (levelLockedByRisk) level = "Nivel 4 (Crisis / riesgo de seguridad)";
-    }
 
     private static readonly string[] Locations =
         ["Escuela / Aula", "Recreo", "Furgón / Trayecto", "Casa / Entrada", "Terapia"];
@@ -280,18 +210,7 @@
 
         var eventType = Triggers.FirstOrDefault(item => item.Label == trigger).EventType ?? "Desregulación Emocional";
 
-        // Duración, recuperación y conductas (dimensiones EOQ) viajan como texto estructurado porque
-        // la API aún no tiene columnas dedicadas para ellas; ver propuesta de esquema en el .md de cambios.
-        var context = new[]
-            {
-                location,
-                transition,
-                trigger,
-                duration is null ? null : $"Duración: {duration}",
-                recovery is null ? null : $"Recuperación: {recovery}",
-                behaviors.Count > 0 ? $"Conductas: {string.Join(", ", behaviors)}" : null,
-                string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
-            }
+        var context = new[] { location, transition, trigger, string.IsNullOrWhiteSpace(note) ? null : note.Trim() }
             .Where(part => !string.IsNullOrWhiteSpace(part));
         var triggerText = string.Join(". ", context);
 
